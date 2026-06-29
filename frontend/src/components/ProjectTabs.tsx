@@ -19,7 +19,7 @@ export function ProjectTabs({ projectId }: { projectId: number }) {
           end={tab.end}
           className={({ isActive }) =>
             `shrink-0 rounded-md px-3 py-2 text-sm ${
-              isActive ? "bg-apex-purple/20 text-white" : "text-apex-muted hover:bg-white/5 hover:text-white"
+              isActive ? "border border-apex-cyan/40 bg-apex-cyan/10 text-white" : "text-apex-muted hover:bg-white/5 hover:text-white"
             }`
           }
         >

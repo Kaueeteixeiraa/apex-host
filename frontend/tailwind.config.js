@@ -6,17 +6,18 @@ export default {
       colors: {
         apex: {
           bg: "#070711",
-          panel: "#10101c",
-          line: "#26233d",
-          purple: "#9d4edd",
-          cyan: "#00d4ff",
-          text: "#f4f1ff",
-          muted: "#9d98b7"
+          panel: "#071221",
+          line: "#14365f",
+          purple: "#1d4ed8",
+          cyan: "#18b6ff",
+          blue: "#006dff",
+          text: "#eef7ff",
+          muted: "#8ea7c7"
         }
       },
       boxShadow: {
-        neon: "0 0 0 1px rgba(157, 78, 221, 0.35), 0 16px 60px rgba(0, 0, 0, 0.35)",
-        glow: "0 0 35px rgba(0, 212, 255, 0.18)"
+        neon: "0 0 0 1px rgba(24, 182, 255, 0.32), 0 18px 70px rgba(0, 109, 255, 0.18)",
+        glow: "0 0 38px rgba(24, 182, 255, 0.28)"
       }
     }
   },

@@ -35,6 +35,14 @@ def docker_container_stats(container_name: str) -> dict:
     if not result.stdout.strip():
         return {"available": False, "reason": "Container not found"}
     try:
-        return {"available": True, "stats": json.loads(result.stdout)}
+        inspect = subprocess.run(
+            ["docker", "inspect", "--format", "{{json .State}}", container_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        state = json.loads(inspect.stdout) if inspect.returncode == 0 and inspect.stdout.strip() else {}
+        return {"available": True, "stats": json.loads(result.stdout), "state": state}
     except json.JSONDecodeError:
         return {"available": True, "raw": result.stdout.strip()}

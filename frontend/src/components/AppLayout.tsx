@@ -7,12 +7,12 @@ import {
   LogOut,
   ScrollText,
   Settings,
-  Shield,
   TerminalSquare
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { ApexLogo } from "./ApexLogo";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -28,15 +28,13 @@ export function AppLayout() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="min-h-screen bg-apex-bg">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-apex-line bg-[#090914]/95 p-4 lg:block">
+    <div className="apex-grid min-h-screen bg-apex-bg">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-apex-line/80 bg-[#020713]/90 p-4 shadow-glow backdrop-blur-xl lg:block">
         <div className="mb-8 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg border border-apex-purple/60 bg-apex-purple/15 text-apex-cyan">
-            <Shield className="h-5 w-5" />
-          </div>
+          <ApexLogo className="h-11 w-11" />
           <div>
             <div className="font-semibold text-white">Apex Host</div>
-            <div className="text-xs text-apex-muted">Private cloud deploys</div>
+            <div className="text-xs text-apex-muted">Neon cloud deploys</div>
           </div>
         </div>
 
@@ -50,7 +48,7 @@ export function AppLayout() {
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
-                    isActive ? "bg-apex-purple/20 text-white" : "text-apex-muted hover:bg-white/5 hover:text-white"
+                    isActive ? "border border-apex-cyan/40 bg-apex-cyan/10 text-white shadow-glow" : "text-apex-muted hover:bg-white/5 hover:text-white"
                   }`
                 }
               >
@@ -63,11 +61,14 @@ export function AppLayout() {
       </aside>
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-10 border-b border-apex-line bg-apex-bg/86 backdrop-blur">
+        <header className="sticky top-0 z-10 border-b border-apex-line/80 bg-apex-bg/82 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-            <div>
-              <div className="text-sm font-medium text-white">Apex Technologies</div>
-              <div className="text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
+            <div className="flex items-center gap-3">
+              <ApexLogo className="h-9 w-9 lg:hidden" />
+              <div>
+                <div className="text-sm font-medium text-white">Apex Technologies</div>
+                <div className="text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden items-center gap-2 rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted sm:flex">
@@ -90,7 +91,7 @@ export function AppLayout() {
                   end={item.to === "/"}
                   className={({ isActive }) =>
                     `flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs ${
-                      isActive ? "bg-apex-purple/20 text-white" : "text-apex-muted"
+                      isActive ? "border border-apex-cyan/40 bg-apex-cyan/10 text-white" : "text-apex-muted"
                     }`
                   }
                 >
@@ -101,7 +102,7 @@ export function AppLayout() {
             })}
           </nav>
         </header>
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <main className="dashboard-enter mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <Outlet />
         </main>
       </div>

@@ -1,9 +1,21 @@
-import { ShieldCheck } from "lucide-react";
+import { Github, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
+import { api, GitHubConnection } from "../lib/api";
 
 export function Settings() {
   const { user } = useAuth();
+  const [github, setGithub] = useState<GitHubConnection | null>(null);
+
+  useEffect(() => {
+    void api<GitHubConnection>("/github/connection").then(setGithub).catch(() => setGithub({ connected: false, login: null, scope: null, connected_at: null }));
+  }, []);
+
+  const connectGithub = async () => {
+    const data = await api<{ url: string }>("/github/oauth/start");
+    window.location.href = data.url;
+  };
 
   return (
     <div className="space-y-5">
@@ -34,6 +46,19 @@ export function Settings() {
           </dl>
         </div>
         <div className="panel p-4">
+          <div className="mb-4 flex items-center gap-2 text-white">
+            <Github className="h-5 w-5 text-apex-cyan" />
+            GitHub
+          </div>
+          <p className="muted mb-4">
+            {github?.connected ? `Conectado como ${github.login}` : "Conecte uma conta para listar repositorios e preparar webhooks."}
+          </p>
+          <button className="btn-primary" onClick={() => void connectGithub()}>
+            <Github className="h-4 w-4" />
+            {github?.connected ? "Reconectar GitHub" : "Conectar GitHub"}
+          </button>
+        </div>
+        <div className="panel p-4">
           <h2 className="mb-3 font-semibold text-white">Flags de deploy</h2>
           <div className="space-y-2 text-sm text-apex-muted">
             <p>
@@ -44,6 +69,9 @@ export function Settings() {
             </p>
             <p>
               <code>NGINX_SITES_DIR</code> faz o backend escrever arquivos de proxy por projeto.
+            </p>
+            <p>
+              <code>GITHUB_WEBHOOK_SECRET</code> valida webhooks com assinatura HMAC.
             </p>
           </div>
         </div>

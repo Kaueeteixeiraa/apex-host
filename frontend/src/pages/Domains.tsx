@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle2, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { CheckCircle2, LockKeyhole, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
 import { api, Domain } from "../lib/api";
 import { ProjectSelector } from "../components/ProjectSelector";
@@ -47,6 +47,12 @@ export function Domains() {
     await loadDomains();
   };
 
+  const issueSsl = async (id: number) => {
+    if (!selectedId) return;
+    await api<Domain>(`/projects/${selectedId}/domains/${id}/ssl`, { method: "POST" });
+    await loadDomains();
+  };
+
   const remove = async (id: number) => {
     if (!selectedId) return;
     await api(`/projects/${selectedId}/domains/${id}`, { method: "DELETE" });
@@ -86,7 +92,7 @@ export function Domains() {
                 <div>
                   <div className="font-medium text-white">{domain.hostname}</div>
                   <div className="mt-1 text-xs text-apex-muted">
-                    DNS: {domain.dns_status} - SSL: {domain.ssl_enabled ? "ativo" : "pendente"} {domain.is_primary ? "- principal" : ""}
+                    DNS: {domain.dns_status} - SSL: {domain.ssl_status || (domain.ssl_enabled ? "ativo" : "pendente")} {domain.is_primary ? "- principal" : ""}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -97,6 +103,10 @@ export function Domains() {
                   <button className="btn-secondary" onClick={() => void makePrimary(domain.id)}>
                     <CheckCircle2 className="h-4 w-4" />
                     Principal
+                  </button>
+                  <button className="btn-secondary" onClick={() => void issueSsl(domain.id)}>
+                    <LockKeyhole className="h-4 w-4" />
+                    SSL
                   </button>
                   <button className="btn-danger" onClick={() => void remove(domain.id)}>
                     <Trash2 className="h-4 w-4" />

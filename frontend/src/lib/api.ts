@@ -22,6 +22,11 @@ export type Project = {
   install_command: string | null;
   build_command: string | null;
   start_command: string | null;
+  github_repo_full_name: string | null;
+  github_webhook_id: string | null;
+  github_webhook_enabled: boolean;
+  cpu_limit: string | null;
+  memory_limit: string | null;
   internal_port: number;
   host_port: number | null;
   primary_domain: string | null;
@@ -38,10 +43,15 @@ export type Deploy = {
   status: string;
   branch: string;
   commit_sha: string | null;
+  commit_author: string | null;
+  commit_message: string | null;
+  deploy_type: string;
+  queue_job_id: string | null;
   duration_seconds: number | null;
   logs: string | null;
   error: string | null;
   dry_run: boolean;
+  cancel_requested_at: string | null;
   started_at: string;
   finished_at: string | null;
 };
@@ -52,6 +62,8 @@ export type Domain = {
   hostname: string;
   is_primary: boolean;
   ssl_enabled: boolean;
+  ssl_status: string;
+  ssl_expires_at: string | null;
   dns_status: string;
   created_at: string;
 };
@@ -96,6 +108,20 @@ export type DashboardStats = {
   server: ServerMetric;
   recent_deploys: Deploy[];
   recent_logs: LogEntry[];
+};
+
+export type GitHubRepo = {
+  full_name: string;
+  clone_url: string;
+  default_branch: string;
+  private: boolean;
+};
+
+export type GitHubConnection = {
+  connected: boolean;
+  login: string | null;
+  scope: string | null;
+  connected_at: string | null;
 };
 
 export function getToken() {

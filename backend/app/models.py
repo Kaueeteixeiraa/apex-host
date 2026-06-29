@@ -20,6 +20,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     projects: Mapped[list["Project"]] = relationship(back_populates="owner")
+    github_accounts: Mapped[list["GitHubAccount"]] = relationship(cascade="all, delete-orphan", back_populates="user")
 
 
 class Project(Base):
@@ -35,6 +36,11 @@ class Project(Base):
     install_command: Mapped[str | None] = mapped_column(String(500))
     build_command: Mapped[str | None] = mapped_column(String(500))
     start_command: Mapped[str | None] = mapped_column(String(500))
+    github_repo_full_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    github_webhook_id: Mapped[str | None] = mapped_column(String(120))
+    github_webhook_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    cpu_limit: Mapped[str | None] = mapped_column(String(40))
+    memory_limit: Mapped[str | None] = mapped_column(String(40))
     internal_port: Mapped[int] = mapped_column(Integer, default=3000, nullable=False)
     host_port: Mapped[int | None] = mapped_column(Integer)
     primary_domain: Mapped[str | None] = mapped_column(String(255))
@@ -68,6 +74,11 @@ class Project(Base):
         back_populates="project",
         order_by="LogEntry.created_at.desc()",
     )
+    webhook_events: Mapped[list["WebhookEvent"]] = relationship(
+        cascade="all, delete-orphan",
+        back_populates="project",
+        order_by="WebhookEvent.created_at.desc()",
+    )
 
 
 class EnvironmentVariable(Base):
@@ -98,10 +109,15 @@ class Deploy(Base):
     status: Mapped[str] = mapped_column(String(50), default="queued", nullable=False)
     branch: Mapped[str] = mapped_column(String(120), nullable=False)
     commit_sha: Mapped[str | None] = mapped_column(String(80))
+    commit_author: Mapped[str | None] = mapped_column(String(255))
+    commit_message: Mapped[str | None] = mapped_column(Text)
+    deploy_type: Mapped[str] = mapped_column(String(40), default="manual", nullable=False)
+    queue_job_id: Mapped[str | None] = mapped_column(String(255), index=True)
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
     logs: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     dry_run: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime)
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
 
@@ -118,10 +134,46 @@ class Domain(Base):
     hostname: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ssl_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ssl_status: Mapped[str] = mapped_column(String(80), default="not_requested", nullable=False)
+    ssl_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
     dns_status: Mapped[str] = mapped_column(String(80), default="unchecked", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     project: Mapped[Project] = relationship(back_populates="domains")
+
+
+class GitHubAccount(Base):
+    __tablename__ = "github_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    github_user_id: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    login: Mapped[str] = mapped_column(String(255), nullable=False)
+    access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[str | None] = mapped_column(String(500))
+    connected_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="github_accounts")
+
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    github_delivery_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    branch: Mapped[str | None] = mapped_column(String(120))
+    commit_sha: Mapped[str | None] = mapped_column(String(80))
+    commit_author: Mapped[str | None] = mapped_column(String(255))
+    commit_message: Mapped[str | None] = mapped_column(Text)
+    matched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    action: Mapped[str] = mapped_column(String(80), default="ignored", nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    project: Mapped[Project | None] = relationship(back_populates="webhook_events")
 
 
 class LogEntry(Base):

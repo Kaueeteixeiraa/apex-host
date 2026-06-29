@@ -1,9 +1,11 @@
 import socket
+import subprocess
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.core.config import get_settings
 from app.deps import get_current_user, require_project_access
 from app.models import Domain, LogEntry, Project, User
 from app.schemas import DomainCreate, DomainRead, DomainUpdate
@@ -112,3 +114,40 @@ def delete_domain(
     db.delete(domain)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{domain_id}/ssl", response_model=DomainRead)
+def issue_ssl(
+    project_id: int,
+    domain_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Domain:
+    require_project_access(project_id, db, user)
+    domain = db.get(Domain, domain_id)
+    if domain is None or domain.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    settings = get_settings()
+    if not settings.certbot_enabled:
+        domain.ssl_status = "dry_run_ready"
+        db.add(LogEntry(project_id=project_id, type="ssl", message=f"SSL dry run prepared for {domain.hostname}"))
+        db.commit()
+        db.refresh(domain)
+        return domain
+    command = ["certbot", "--nginx", "-d", domain.hostname, "--non-interactive", "--agree-tos"]
+    if settings.certbot_email:
+        command.extend(["--email", settings.certbot_email])
+    else:
+        command.append("--register-unsafely-without-email")
+    result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+    if result.returncode == 0:
+        domain.ssl_enabled = True
+        domain.ssl_status = "active"
+        message = f"SSL issued for {domain.hostname}"
+    else:
+        domain.ssl_status = "failed"
+        message = result.stderr or result.stdout or "Certbot failed"
+    db.add(LogEntry(project_id=project_id, type="ssl", message=message[:4000]))
+    db.commit()
+    db.refresh(domain)
+    return domain

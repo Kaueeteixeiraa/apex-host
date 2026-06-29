@@ -36,6 +36,9 @@ class ProjectBase(BaseModel):
     install_command: str | None = Field(default=None, max_length=500)
     build_command: str | None = Field(default=None, max_length=500)
     start_command: str | None = Field(default=None, max_length=500)
+    github_repo_full_name: str | None = Field(default=None, max_length=255)
+    cpu_limit: str | None = Field(default=None, max_length=40)
+    memory_limit: str | None = Field(default=None, max_length=40)
     internal_port: int = 3000
     primary_domain: str | None = Field(default=None, max_length=255)
 
@@ -60,6 +63,10 @@ class ProjectUpdate(BaseModel):
     install_command: str | None = Field(default=None, max_length=500)
     build_command: str | None = Field(default=None, max_length=500)
     start_command: str | None = Field(default=None, max_length=500)
+    github_repo_full_name: str | None = Field(default=None, max_length=255)
+    github_webhook_enabled: bool | None = None
+    cpu_limit: str | None = Field(default=None, max_length=40)
+    memory_limit: str | None = Field(default=None, max_length=40)
     internal_port: int | None = None
     primary_domain: str | None = Field(default=None, max_length=255)
     status: str | None = Field(default=None, max_length=50)
@@ -76,6 +83,11 @@ class ProjectRead(BaseModel):
     install_command: str | None
     build_command: str | None
     start_command: str | None
+    github_repo_full_name: str | None
+    github_webhook_id: str | None
+    github_webhook_enabled: bool
+    cpu_limit: str | None
+    memory_limit: str | None
     internal_port: int
     host_port: int | None
     primary_domain: str | None
@@ -121,10 +133,15 @@ class DeployRead(BaseModel):
     status: str
     branch: str
     commit_sha: str | None
+    commit_author: str | None
+    commit_message: str | None
+    deploy_type: str
+    queue_job_id: str | None
     duration_seconds: int | None
     logs: str | None
     error: str | None
     dry_run: bool
+    cancel_requested_at: datetime | None
     started_at: datetime
     finished_at: datetime | None
 
@@ -139,6 +156,7 @@ class DomainCreate(BaseModel):
 class DomainUpdate(BaseModel):
     is_primary: bool | None = None
     ssl_enabled: bool | None = None
+    ssl_status: str | None = Field(default=None, max_length=80)
     dns_status: str | None = Field(default=None, max_length=80)
 
 
@@ -148,6 +166,8 @@ class DomainRead(BaseModel):
     hostname: str
     is_primary: bool
     ssl_enabled: bool
+    ssl_status: str
+    ssl_expires_at: datetime | None
     dns_status: str
     created_at: datetime
 
@@ -186,3 +206,33 @@ class DashboardStats(BaseModel):
     server: ServerMetric
     recent_deploys: list[DeployRead]
     recent_logs: list[LogRead]
+
+
+class GitHubRepoRead(BaseModel):
+    full_name: str
+    clone_url: str
+    default_branch: str
+    private: bool
+
+
+class GitHubConnectionRead(BaseModel):
+    connected: bool
+    login: str | None = None
+    scope: str | None = None
+    connected_at: datetime | None = None
+
+
+class WebhookEventRead(BaseModel):
+    id: int
+    project_id: int | None
+    github_delivery_id: str
+    event_type: str
+    branch: str | None
+    commit_sha: str | None
+    commit_author: str | None
+    commit_message: str | None
+    matched: bool
+    action: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

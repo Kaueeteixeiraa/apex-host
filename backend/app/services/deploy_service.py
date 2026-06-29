@@ -21,6 +21,9 @@ class DeployCanceled(Exception):
     pass
 
 
+RUNNING_PROCESSES: dict[int, subprocess.Popen[str]] = {}
+
+
 def append_deploy_log(db: Session, deploy: Deploy, level: str, message: str) -> None:
     deploy.logs = f"{deploy.logs or ''}[{level}] {message}\n"
     db.add(
@@ -57,6 +60,44 @@ def _run_command(
     )
 
 
+def _run_deploy_command(
+    db: Session,
+    deploy: Deploy,
+    args: list[str],
+    cwd: Path,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process = subprocess.Popen(
+        args,
+        cwd=str(cwd),
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    RUNNING_PROCESSES[deploy.id] = process
+    started = time.time()
+    try:
+        while process.poll() is None:
+            if time.time() - started > timeout:
+                process.terminate()
+                raise TimeoutError(f"Command timed out: {' '.join(args)}")
+            db.refresh(deploy)
+            if deploy.status == "canceled":
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                raise DeployCanceled("Deployment canceled")
+            time.sleep(1)
+        stdout, stderr = process.communicate()
+        return subprocess.CompletedProcess(args, process.returncode or 0, stdout, stderr)
+    finally:
+        RUNNING_PROCESSES.pop(deploy.id, None)
+
+
 def _validate_shell_command(command: str) -> list[str]:
     settings = get_settings()
     parts = shlex.split(command)
@@ -88,7 +129,7 @@ def _clone_or_update_repo(db: Session, deploy: Deploy, project: Project, repo_pa
         commands = [["git", "clone", "--branch", project.branch, project.github_url, str(repo_path)]]
 
     for command in commands:
-        result = _run_command(command, settings.data_dir, settings.deploy_timeout_seconds)
+        result = _run_deploy_command(db, deploy, command, settings.data_dir, settings.deploy_timeout_seconds)
         if result.returncode != 0:
             raise RuntimeError(result.stderr or result.stdout or f"Command failed: {' '.join(command)}")
         if result.stdout.strip():
@@ -127,7 +168,7 @@ def _run_build_steps(db: Session, deploy: Deploy, project: Project, repo_path: P
             continue
         append_deploy_log(db, deploy, "deploy", f"Running {label}: {command}")
         args = _validate_shell_command(command)
-        result = _run_command(args, repo_path, settings.deploy_timeout_seconds, env=env)
+        result = _run_deploy_command(db, deploy, args, repo_path, settings.deploy_timeout_seconds, env=env)
         if result.stdout.strip():
             append_deploy_log(db, deploy, "deploy", result.stdout.strip()[-4000:])
         if result.stderr.strip():
@@ -184,20 +225,28 @@ def _docker_deploy(db: Session, deploy: Deploy, project: Project, repo_path: Pat
     image = f"apex-host-{project.slug}:latest"
     container = f"apex-host-{project.slug}"
     append_deploy_log(db, deploy, "deploy", f"Building Docker image {image}")
-    result = _run_command(["docker", "build", "-f", str(dockerfile), "-t", image, "."], repo_path, settings.deploy_timeout_seconds)
+    result = _run_deploy_command(db, deploy, ["docker", "build", "-f", str(dockerfile), "-t", image, "."], repo_path, settings.deploy_timeout_seconds)
     if result.returncode != 0:
         raise RuntimeError(result.stderr or result.stdout or "Docker build failed")
 
     _run_command(["docker", "rm", "-f", container], repo_path, 60)
     env = _load_environment(db, project)
     command = ["docker", "run", "-d", "--restart", "unless-stopped", "--name", container]
-    if settings.docker_network:
-        command.extend(["--network", settings.docker_network])
+    network = settings.docker_apps_network or settings.docker_network
+    if network:
+        _run_command(["docker", "network", "create", network], repo_path, 60)
+        command.extend(["--network", network])
+    cpu_limit = project.cpu_limit or settings.docker_cpu_limit
+    memory_limit = project.memory_limit or settings.docker_memory_limit
+    if cpu_limit:
+        command.extend(["--cpus", cpu_limit])
+    if memory_limit:
+        command.extend(["--memory", memory_limit])
     for key, value in env.items():
         command.extend(["-e", f"{key}={value}"])
     command.extend(["-p", f"127.0.0.1:{host_port}:{project.internal_port}", image])
     append_deploy_log(db, deploy, "deploy", f"Starting container on 127.0.0.1:{host_port}")
-    result = _run_command(command, repo_path, settings.deploy_timeout_seconds)
+    result = _run_deploy_command(db, deploy, command, repo_path, settings.deploy_timeout_seconds)
     if result.returncode != 0:
         raise RuntimeError(result.stderr or result.stdout or "Docker run failed")
 
@@ -230,6 +279,19 @@ def _write_nginx_config(db: Session, deploy: Deploy, project: Project) -> None:
     target = sites_dir / f"{project.slug}.conf"
     target.write_text(config, encoding="utf-8")
     append_deploy_log(db, deploy, "deploy", f"Wrote Nginx config to {target}")
+    test_args = shlex.split(settings.nginx_test_command)
+    result = _run_command(test_args, Path.cwd(), 60)
+    if result.returncode != 0:
+        message = result.stderr or result.stdout or "nginx -t failed"
+        append_deploy_log(db, deploy, "error", f"Nginx validation failed: {message}")
+        raise RuntimeError(message)
+    reload_args = shlex.split(settings.nginx_reload_command)
+    result = _run_command(reload_args, Path.cwd(), 60)
+    if result.returncode != 0:
+        message = result.stderr or result.stdout or "Nginx reload failed"
+        append_deploy_log(db, deploy, "error", message)
+        raise RuntimeError(message)
+    append_deploy_log(db, deploy, "deploy", "Nginx validation passed and reload completed")
 
 
 def run_deploy_task(deploy_id: int) -> None:
@@ -238,6 +300,9 @@ def run_deploy_task(deploy_id: int) -> None:
     try:
         deploy = db.get(Deploy, deploy_id)
         if deploy is None:
+            return
+        if deploy.status == "canceled":
+            append_deploy_log(db, deploy, "deploy", "Deployment canceled before worker start")
             return
         project = db.get(Project, deploy.project_id)
         if project is None:
@@ -260,7 +325,12 @@ def run_deploy_task(deploy_id: int) -> None:
                 project.build_command = project.build_command or detected["build_command"]
                 project.start_command = project.start_command or detected["start_command"]
                 append_deploy_log(db, deploy, "deploy", f"Detected project type: {project.project_type}")
-            deploy.commit_sha = _current_commit(repo_path)
+            deploy.commit_sha = deploy.commit_sha or _current_commit(repo_path)
+            if deploy.commit_sha and not deploy.commit_message:
+                message_result = _run_command(["git", "log", "-1", "--pretty=%s"], repo_path, 20)
+                author_result = _run_command(["git", "log", "-1", "--pretty=%an"], repo_path, 20)
+                deploy.commit_message = message_result.stdout.strip() if message_result.returncode == 0 else None
+                deploy.commit_author = author_result.stdout.strip() if author_result.returncode == 0 else None
         else:
             append_deploy_log(db, deploy, "deploy", "No repository configured. Skipping clone/build.")
 

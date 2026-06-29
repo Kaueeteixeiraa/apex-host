@@ -42,6 +42,25 @@ services:
       redis:
         condition: service_started
 
+  worker:
+    build:
+      context: ./backend
+    command: python -m app.worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://apex_host:apex_host@postgres:5432/apex_host
+      REDIS_URL: redis://redis:6379/0
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   frontend:
     build:
       context: ./frontend

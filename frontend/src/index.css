@@ -7,8 +7,8 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: #070711;
-  color: #f4f1ff;
+  background: #020713;
+  color: #eef7ff;
 }
 
 * {
@@ -20,8 +20,10 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(10, 10, 25, 0.96), rgba(7, 7, 17, 1)),
-    #070711;
+    radial-gradient(circle at 12% 8%, rgba(0, 109, 255, 0.2), transparent 34rem),
+    radial-gradient(circle at 86% 18%, rgba(24, 182, 255, 0.12), transparent 30rem),
+    linear-gradient(135deg, rgba(2, 7, 19, 0.96), rgba(3, 12, 27, 1)),
+    #020713;
 }
 
 button,
@@ -33,11 +35,11 @@ textarea {
 
 @layer components {
   .panel {
-    @apply rounded-lg border border-apex-line bg-apex-panel/80 shadow-neon backdrop-blur;
+    @apply rounded-lg border border-apex-line/80 bg-apex-panel/70 shadow-neon backdrop-blur-xl;
   }
 
   .field {
-    @apply w-full rounded-md border border-apex-line bg-[#090915] px-3 py-2 text-sm text-apex-text outline-none transition focus:border-apex-cyan focus:ring-2 focus:ring-apex-cyan/20;
+    @apply w-full rounded-md border border-apex-line bg-[#031023]/80 px-3 py-2 text-sm text-apex-text outline-none transition placeholder:text-apex-muted/60 focus:border-apex-cyan focus:ring-2 focus:ring-apex-cyan/20;
   }
 
   .btn {
@@ -45,11 +47,11 @@ textarea {
   }
 
   .btn-primary {
-    @apply btn border-apex-purple/70 bg-apex-purple text-white shadow-glow hover:bg-[#8a3fd0];
+    @apply btn border-apex-cyan/70 bg-apex-blue text-white shadow-glow hover:bg-[#0a7dff];
   }
 
   .btn-secondary {
-    @apply btn bg-[#121224] text-apex-text hover:border-apex-cyan/60 hover:text-white;
+    @apply btn bg-[#06172c] text-apex-text hover:border-apex-cyan/60 hover:bg-[#08213f] hover:text-white;
   }
 
   .btn-danger {
@@ -66,5 +68,51 @@ textarea {
 
   .muted {
     @apply text-sm text-apex-muted;
+  }
+}
+
+.apex-grid {
+  background-image:
+    linear-gradient(rgba(24, 182, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 182, 255, 0.07) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.dashboard-enter {
+  animation: dashboard-enter 520ms ease both;
+}
+
+.energy-ring {
+  animation: energy-spin 1.2s linear infinite;
+}
+
+.apex-pulse {
+  animation: apex-pulse 1.7s ease-in-out infinite;
+}
+
+@keyframes dashboard-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes energy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes apex-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 10px rgba(24, 182, 255, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(24, 182, 255, 0.95));
   }
 }

@@ -54,11 +54,11 @@ export function Dashboard() {
         </div>
         <div className="panel p-4">
           <div className="mb-4 flex items-center gap-2 text-white">
-            <HardDrive className="h-5 w-5 text-apex-purple" />
+            <HardDrive className="h-5 w-5 text-apex-blue" />
             Armazenamento
           </div>
           <div className="h-2 rounded-full bg-white/10">
-            <div className="h-2 rounded-full bg-apex-purple" style={{ width: `${data.server.disk_percent}%` }} />
+            <div className="h-2 rounded-full bg-apex-blue" style={{ width: `${data.server.disk_percent}%` }} />
           </div>
           <p className="muted mt-3">
             {data.server.disk_used_gb} GB de {data.server.disk_total_gb} GB

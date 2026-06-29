@@ -84,9 +84,14 @@ export function Deploys() {
                       <StatusBadge status={deploy.status} />
                     </div>
                     <p className="muted mt-1">
-                      Branch {deploy.branch} - {formatDate(deploy.started_at)} - {deploy.dry_run ? "dry run" : "docker"}
+                      Branch {deploy.branch} - {formatDate(deploy.started_at)} - {deploy.dry_run ? "dry run" : "docker"} - {deploy.deploy_type}
                     </p>
                     {deploy.commit_sha ? <p className="mt-1 text-xs text-apex-muted">Commit {deploy.commit_sha.slice(0, 12)}</p> : null}
+                    {deploy.commit_author || deploy.commit_message ? (
+                      <p className="mt-1 text-xs text-apex-muted">
+                        {deploy.commit_author || "Autor desconhecido"} - {deploy.commit_message || "Sem mensagem"}
+                      </p>
+                    ) : null}
                   </div>
                   {deploy.status === "queued" || deploy.status === "running" ? (
                     <button className="btn-danger" onClick={() => void cancel(deploy.id)}>

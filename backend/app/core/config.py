@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./apex_host.db"
     redis_url: str = "redis://localhost:6379/0"
+    deploy_queue_name: str = "apex-host-deploys"
+    use_redis_deploy_queue: bool = True
     backend_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     admin_email: str = "admin@apex.local"
@@ -29,8 +31,19 @@ class Settings(BaseSettings):
     enable_docker_deploys: bool = False
     enable_build_commands: bool = False
     docker_network: str | None = None
+    docker_apps_network: str = "apex-host-apps"
+    docker_cpu_limit: str | None = None
+    docker_memory_limit: str | None = None
     nginx_sites_dir: str | None = None
+    nginx_test_command: str = "nginx -t"
+    nginx_reload_command: str = "nginx -s reload"
     certbot_enabled: bool = False
+    certbot_email: str | None = None
+    github_webhook_secret: str | None = None
+    github_oauth_client_id: str | None = None
+    github_oauth_client_secret: str | None = None
+    github_oauth_redirect_url: str = "http://localhost:8000/api/github/oauth/callback"
+    auto_create_tables: bool = True
     allowed_command_prefixes: str = "npm,pnpm,yarn,node,python,pip,uvicorn,gunicorn"
 
     model_config = SettingsConfigDict(

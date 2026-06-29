@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { Github, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { api, formatDate, Project } from "../lib/api";
+import { api, formatDate, GitHubRepo, Project } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 
 const emptyForm = {
@@ -21,6 +21,7 @@ export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
@@ -29,6 +30,7 @@ export function Projects() {
 
   useEffect(() => {
     void load().catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar projetos"));
+    void api<GitHubRepo[]>("/github/repos").then(setRepos).catch(() => setRepos([]));
   }, []);
 
   const submit = async (event: FormEvent) => {
@@ -44,7 +46,8 @@ export function Projects() {
           github_url: form.github_url || null,
           install_command: form.install_command || null,
           build_command: form.build_command || null,
-          start_command: form.start_command || null
+          start_command: form.start_command || null,
+          github_repo_full_name: repos.find((repo) => repo.clone_url === form.github_url)?.full_name || null
         })
       });
       setForm(emptyForm);
@@ -91,6 +94,26 @@ export function Projects() {
             placeholder="https://github.com/org/repo.git"
           />
         </div>
+        {repos.length > 0 ? (
+          <div className="lg:col-span-2">
+            <label className="label">Repositorios conectados</label>
+            <select
+              className="field"
+              onChange={(event) => {
+                const repo = repos.find((item) => item.full_name === event.target.value);
+                if (repo) setForm({ ...form, github_url: repo.clone_url, branch: repo.default_branch });
+              }}
+              defaultValue=""
+            >
+              <option value="">Selecionar do GitHub</option>
+              {repos.map((repo) => (
+                <option key={repo.full_name} value={repo.full_name}>
+                  {repo.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label className="label">Tipo</label>
           <select className="field" value={form.project_type} onChange={(event) => setForm({ ...form, project_type: event.target.value })}>
@@ -160,7 +183,10 @@ export function Projects() {
                     <Link className="font-medium text-white hover:text-apex-cyan" to={`/projects/${project.id}`}>
                       {project.name}
                     </Link>
-                    <div className="text-xs text-apex-muted">{project.github_url || "Repositorio nao configurado"}</div>
+                    <div className="flex items-center gap-1 text-xs text-apex-muted">
+                      <Github className="h-3 w-3" />
+                      {project.github_repo_full_name || project.github_url || "Repositorio nao configurado"}
+                    </div>
                   </td>
                   <td className="p-4">
                     <StatusBadge status={project.status} />

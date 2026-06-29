@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.routes import auth, dashboard, deploys, domains, env_vars, logs, monitoring, projects
+from app.routes import auth, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects
 from app.services.bootstrap import create_tables, ensure_admin_user
 
 
@@ -22,7 +22,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
-    create_tables()
+    if settings.auto_create_tables:
+        create_tables()
     db = SessionLocal()
     try:
         ensure_admin_user(db)
@@ -43,3 +44,4 @@ app.include_router(domains.router, prefix=settings.api_prefix)
 app.include_router(deploys.router, prefix=settings.api_prefix)
 app.include_router(logs.router, prefix=settings.api_prefix)
 app.include_router(monitoring.router, prefix=settings.api_prefix)
+app.include_router(github.router, prefix=settings.api_prefix)
