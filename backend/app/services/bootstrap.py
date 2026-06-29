@@ -1,0 +1,37 @@
+from sqlalchemy.orm import Session
+
+from app.core.config import get_settings
+from app.core.security import get_password_hash
+from app.db.base import Base
+from app.db.session import engine
+from app.models import User
+
+
+def create_tables() -> None:
+    Base.metadata.create_all(bind=engine)
+
+
+def ensure_admin_user(db: Session) -> User:
+    settings = get_settings()
+    admin = db.query(User).filter(User.email == settings.admin_email).first()
+    if admin:
+        return admin
+
+    admin = User(
+        email=settings.admin_email,
+        full_name=settings.admin_name,
+        hashed_password=get_password_hash(settings.admin_password),
+        role="admin",
+        plan="admin_unlimited",
+        limits={
+            "projects": None,
+            "deploys": None,
+            "domains": None,
+            "ram_mb": None,
+            "storage_mb": None,
+        },
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    return admin

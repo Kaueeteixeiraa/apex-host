@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+SQLAlchemy>=2.0.40,<2.1.0
+pydantic-settings==2.7.1
+psycopg[binary]>=3.2.13,<4.0.0
+python-jose[cryptography]==3.3.0
+bcrypt>=4.2.1,<6.0.0
+python-multipart==0.0.20
+cryptography==44.0.0
+psutil==6.1.1
+redis==5.2.1

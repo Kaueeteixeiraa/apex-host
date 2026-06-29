@@ -1,0 +1,11 @@
+.env
+*.db
+__pycache__/
+.pytest_cache/
+.venv/
+node_modules/
+dist/
+data/repos/
+data/postgres/
+data/redis/
+*.log

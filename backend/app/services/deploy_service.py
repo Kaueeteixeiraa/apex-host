@@ -1,0 +1,308 @@
+import os
+import json
+import shlex
+import subprocess
+import time
+from datetime import datetime
+from pathlib import Path
+from shutil import which
+
+from sqlalchemy.orm import Session
+
+from app.core.config import get_settings
+from app.core.security import decrypt_secret
+from app.db.session import SessionLocal
+from app.deploy.detector import detect_project_type
+from app.models import Deploy, EnvironmentVariable, LogEntry, Project
+from app.services.projects import allocate_host_port
+
+
+class DeployCanceled(Exception):
+    pass
+
+
+def append_deploy_log(db: Session, deploy: Deploy, level: str, message: str) -> None:
+    deploy.logs = f"{deploy.logs or ''}[{level}] {message}\n"
+    db.add(
+        LogEntry(
+            project_id=deploy.project_id,
+            deploy_id=deploy.id,
+            type=level,
+            message=message,
+        )
+    )
+    db.commit()
+
+
+def _ensure_not_canceled(db: Session, deploy: Deploy) -> None:
+    db.refresh(deploy)
+    if deploy.status == "canceled":
+        raise DeployCanceled("Deployment canceled")
+
+
+def _run_command(
+    args: list[str],
+    cwd: Path,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        cwd=str(cwd),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def _validate_shell_command(command: str) -> list[str]:
+    settings = get_settings()
+    parts = shlex.split(command)
+    if not parts:
+        raise ValueError("Empty command")
+    executable = parts[0]
+    if executable not in settings.allowed_commands:
+        raise ValueError(f"Command '{executable}' is not allowed")
+    return parts
+
+
+def _clone_or_update_repo(db: Session, deploy: Deploy, project: Project, repo_path: Path) -> None:
+    settings = get_settings()
+    if not project.github_url:
+        raise ValueError("Project has no GitHub repository URL")
+    if not which("git"):
+        raise ValueError("Git CLI not found")
+
+    if repo_path.exists():
+        append_deploy_log(db, deploy, "deploy", "Updating existing repository")
+        commands = [
+            ["git", "fetch", "origin", project.branch],
+            ["git", "checkout", project.branch],
+            ["git", "pull", "--ff-only", "origin", project.branch],
+        ]
+    else:
+        repo_path.parent.mkdir(parents=True, exist_ok=True)
+        append_deploy_log(db, deploy, "deploy", "Cloning repository")
+        commands = [["git", "clone", "--branch", project.branch, project.github_url, str(repo_path)]]
+
+    for command in commands:
+        result = _run_command(command, settings.data_dir, settings.deploy_timeout_seconds)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr or result.stdout or f"Command failed: {' '.join(command)}")
+        if result.stdout.strip():
+            append_deploy_log(db, deploy, "deploy", result.stdout.strip()[-2000:])
+
+
+def _current_commit(repo_path: Path) -> str | None:
+    result = _run_command(["git", "rev-parse", "HEAD"], repo_path, 20)
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return None
+
+
+def _load_environment(db: Session, project: Project) -> dict[str, str]:
+    env_vars = db.query(EnvironmentVariable).filter(EnvironmentVariable.project_id == project.id).all()
+    values = {}
+    for item in env_vars:
+        values[item.key] = decrypt_secret(item.value_encrypted)
+    values["PORT"] = str(project.internal_port)
+    return values
+
+
+def _run_build_steps(db: Session, deploy: Deploy, project: Project, repo_path: Path) -> None:
+    settings = get_settings()
+    if not settings.enable_build_commands:
+        append_deploy_log(db, deploy, "deploy", "Build commands disabled. Set ENABLE_BUILD_COMMANDS=true to execute install/build.")
+        return
+
+    env = os.environ.copy()
+    env.update(_load_environment(db, project))
+    for label, command in (
+        ("install", project.install_command),
+        ("build", project.build_command),
+    ):
+        if not command:
+            continue
+        append_deploy_log(db, deploy, "deploy", f"Running {label}: {command}")
+        args = _validate_shell_command(command)
+        result = _run_command(args, repo_path, settings.deploy_timeout_seconds, env=env)
+        if result.stdout.strip():
+            append_deploy_log(db, deploy, "deploy", result.stdout.strip()[-4000:])
+        if result.stderr.strip():
+            append_deploy_log(db, deploy, "error", result.stderr.strip()[-4000:])
+        if result.returncode != 0:
+            raise RuntimeError(f"{label} command failed with code {result.returncode}")
+
+
+def _write_runtime_dockerfile(project: Project, repo_path: Path) -> Path:
+    dockerfile = repo_path / ".apexhost.Dockerfile"
+    start_command = project.start_command or "python main.py"
+    cmd = json.dumps(shlex.split(start_command))
+    if project.project_type in {"react-vite", "nextjs", "node"}:
+        content = f"""FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN {project.build_command or 'echo "No build command"'}
+EXPOSE {project.internal_port}
+CMD {cmd}
+"""
+    elif project.project_type == "static":
+        content = f"""FROM nginx:1.27-alpine
+COPY . /usr/share/nginx/html
+EXPOSE {project.internal_port}
+"""
+    else:
+        content = f"""FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt* ./
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+COPY . .
+EXPOSE {project.internal_port}
+CMD {cmd}
+"""
+    dockerfile.write_text(content, encoding="utf-8")
+    return dockerfile
+
+
+def _docker_deploy(db: Session, deploy: Deploy, project: Project, repo_path: Path) -> None:
+    settings = get_settings()
+    if not settings.enable_docker_deploys:
+        append_deploy_log(db, deploy, "deploy", "Docker deployment disabled. Set ENABLE_DOCKER_DEPLOYS=true for real containers.")
+        return
+    if not which("docker"):
+        raise ValueError("Docker CLI not found")
+
+    host_port = allocate_host_port(project)
+    project.host_port = host_port
+    db.commit()
+
+    dockerfile = _write_runtime_dockerfile(project, repo_path)
+    image = f"apex-host-{project.slug}:latest"
+    container = f"apex-host-{project.slug}"
+    append_deploy_log(db, deploy, "deploy", f"Building Docker image {image}")
+    result = _run_command(["docker", "build", "-f", str(dockerfile), "-t", image, "."], repo_path, settings.deploy_timeout_seconds)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or result.stdout or "Docker build failed")
+
+    _run_command(["docker", "rm", "-f", container], repo_path, 60)
+    env = _load_environment(db, project)
+    command = ["docker", "run", "-d", "--restart", "unless-stopped", "--name", container]
+    if settings.docker_network:
+        command.extend(["--network", settings.docker_network])
+    for key, value in env.items():
+        command.extend(["-e", f"{key}={value}"])
+    command.extend(["-p", f"127.0.0.1:{host_port}:{project.internal_port}", image])
+    append_deploy_log(db, deploy, "deploy", f"Starting container on 127.0.0.1:{host_port}")
+    result = _run_command(command, repo_path, settings.deploy_timeout_seconds)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or result.stdout or "Docker run failed")
+
+
+def _write_nginx_config(db: Session, deploy: Deploy, project: Project) -> None:
+    settings = get_settings()
+    if not settings.nginx_sites_dir or not project.host_port:
+        return
+    sites_dir = Path(settings.nginx_sites_dir)
+    sites_dir.mkdir(parents=True, exist_ok=True)
+    hostnames = [project.auto_subdomain]
+    if project.primary_domain:
+        hostnames.insert(0, project.primary_domain)
+    config = f"""server {{
+    listen 80;
+    server_name {' '.join(hostnames)};
+
+    location / {{
+        proxy_pass http://127.0.0.1:{project.host_port};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }}
+}}
+"""
+    target = sites_dir / f"{project.slug}.conf"
+    target.write_text(config, encoding="utf-8")
+    append_deploy_log(db, deploy, "deploy", f"Wrote Nginx config to {target}")
+
+
+def run_deploy_task(deploy_id: int) -> None:
+    db = SessionLocal()
+    started = time.time()
+    try:
+        deploy = db.get(Deploy, deploy_id)
+        if deploy is None:
+            return
+        project = db.get(Project, deploy.project_id)
+        if project is None:
+            return
+
+        deploy.status = "running"
+        project.status = "building"
+        db.commit()
+        append_deploy_log(db, deploy, "deploy", "Deployment started")
+        _ensure_not_canceled(db, deploy)
+
+        repo_path = get_settings().data_dir / "repos" / project.slug
+        if project.github_url:
+            _clone_or_update_repo(db, deploy, project, repo_path)
+            _ensure_not_canceled(db, deploy)
+            detected = detect_project_type(repo_path)
+            if project.project_type == "manual" and detected["project_type"] != "manual":
+                project.project_type = detected["project_type"] or project.project_type
+                project.install_command = project.install_command or detected["install_command"]
+                project.build_command = project.build_command or detected["build_command"]
+                project.start_command = project.start_command or detected["start_command"]
+                append_deploy_log(db, deploy, "deploy", f"Detected project type: {project.project_type}")
+            deploy.commit_sha = _current_commit(repo_path)
+        else:
+            append_deploy_log(db, deploy, "deploy", "No repository configured. Skipping clone/build.")
+
+        if not deploy.dry_run and project.github_url:
+            _ensure_not_canceled(db, deploy)
+            _run_build_steps(db, deploy, project, repo_path)
+            _ensure_not_canceled(db, deploy)
+            _docker_deploy(db, deploy, project, repo_path)
+            _write_nginx_config(db, deploy, project)
+            project.status = "online" if get_settings().enable_docker_deploys else "offline"
+        else:
+            append_deploy_log(db, deploy, "deploy", "Dry run finished. No container was changed.")
+            project.status = "offline"
+
+        deploy.status = "success"
+        deploy.finished_at = datetime.utcnow()
+        deploy.duration_seconds = int(time.time() - started)
+        project.last_deploy_at = deploy.finished_at
+        db.commit()
+        append_deploy_log(db, deploy, "deploy", "Deployment finished")
+    except DeployCanceled:
+        deploy = db.get(Deploy, deploy_id)
+        if deploy is not None:
+            project = db.get(Project, deploy.project_id)
+            deploy.status = "canceled"
+            deploy.finished_at = datetime.utcnow()
+            deploy.duration_seconds = int(time.time() - started)
+            if project is not None and project.status == "building":
+                project.status = "offline"
+            db.commit()
+            append_deploy_log(db, deploy, "deploy", "Deployment canceled")
+    except Exception as exc:
+        deploy = db.get(Deploy, deploy_id)
+        if deploy is not None:
+            project = db.get(Project, deploy.project_id)
+            deploy.status = "failed"
+            deploy.error = str(exc)
+            deploy.finished_at = datetime.utcnow()
+            deploy.duration_seconds = int(time.time() - started)
+            if project is not None:
+                project.status = "error"
+            db.commit()
+            append_deploy_log(db, deploy, "error", str(exc))
+    finally:
+        db.close()
