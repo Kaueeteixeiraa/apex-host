@@ -21,6 +21,8 @@ class User(Base):
 
     projects: Mapped[list["Project"]] = relationship(back_populates="owner")
     github_accounts: Mapped[list["GitHubAccount"]] = relationship(cascade="all, delete-orphan", back_populates="user")
+    audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="user")
+    project_memberships: Mapped[list["ProjectMember"]] = relationship(cascade="all, delete-orphan", back_populates="user")
 
 
 class Project(Base):
@@ -79,6 +81,26 @@ class Project(Base):
         back_populates="project",
         order_by="WebhookEvent.created_at.desc()",
     )
+    members: Mapped[list["ProjectMember"]] = relationship(cascade="all, delete-orphan", back_populates="project")
+    audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="project")
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    __table_args__ = (UniqueConstraint("project_id", "user_id", name="uq_project_member_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="viewer", nullable=False)
+    can_view: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_edit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_deploy: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_delete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    project: Mapped[Project] = relationship(back_populates="members")
+    user: Mapped[User] = relationship(back_populates="project_memberships")
 
 
 class EnvironmentVariable(Base):
@@ -188,3 +210,20 @@ class LogEntry(Base):
 
     project: Mapped[Project] = relationship(back_populates="logs")
     deploy: Mapped[Deploy | None] = relationship(back_populates="log_entries")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    action: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    target_type: Mapped[str | None] = mapped_column(String(120))
+    target_id: Mapped[str | None] = mapped_column(String(120))
+    ip_address: Mapped[str | None] = mapped_column(String(80))
+    details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    user: Mapped[User | None] = relationship(back_populates="audit_logs")
+    project: Mapped[Project | None] = relationship(back_populates="audit_logs")

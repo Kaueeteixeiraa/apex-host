@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.routes import auth, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects
+from app.routes import audit, auth, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects
 from app.services.bootstrap import create_tables, ensure_admin_user
 
 
@@ -45,3 +45,4 @@ app.include_router(deploys.router, prefix=settings.api_prefix)
 app.include_router(logs.router, prefix=settings.api_prefix)
 app.include_router(monitoring.router, prefix=settings.api_prefix)
 app.include_router(github.router, prefix=settings.api_prefix)
+app.include_router(audit.router, prefix=settings.api_prefix)

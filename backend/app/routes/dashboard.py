@@ -16,6 +16,7 @@ def dashboard(_: User = Depends(get_current_user), db: Session = Depends(get_db)
     total_projects = db.query(Project).count()
     recent_deploys = db.query(Deploy).order_by(Deploy.started_at.desc()).limit(5).all()
     recent_logs = db.query(LogEntry).filter(LogEntry.type == "error").order_by(LogEntry.created_at.desc()).limit(5).all()
+    recent_projects = db.query(Project).order_by(Project.updated_at.desc()).limit(6).all()
     return {
         "total_projects": total_projects,
         "online_projects": db.query(Project).filter(Project.status == "online").count(),
@@ -27,4 +28,5 @@ def dashboard(_: User = Depends(get_current_user), db: Session = Depends(get_db)
         "server": server_metrics(),
         "recent_deploys": recent_deploys,
         "recent_logs": recent_logs,
+        "recent_projects": recent_projects,
     }

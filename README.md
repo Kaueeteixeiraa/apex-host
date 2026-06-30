@@ -1,41 +1,22 @@
 # Apex Host
 
-Apex Host e uma plataforma privada de hospedagem para projetos da Apex Technologies. Este MVP entrega uma base real com frontend React, backend FastAPI, Postgres, Redis, autenticacao admin, CRUD de projetos, variaveis de ambiente, dominios, logs, deploy manual e estrutura para Docker/Nginx.
+Apex Host e uma plataforma privada de hospedagem da Apex Technologies, inspirada em Vercel, Railway, Render e Netlify. O foco atual e hospedar projetos proprios com um painel premium, seguro e operacional: projetos, deploys, dominios, logs, variaveis de ambiente, monitoramento e integracao GitHub.
 
-## O que ja esta implementado
+> Espaco para prints: login, dashboard, wizard de projeto, pagina de projeto, deploys, logs e dominios.
 
-- Login admin com JWT e senha com hash.
-- Dashboard com contadores, ultimos deploys, erros e metricas do servidor.
-- CRUD de projetos com repositorio GitHub, branch, comandos, porta e status.
-- Variaveis de ambiente por projeto, criptografadas no backend e mascaradas na UI.
-- Dominios por projeto, checagem DNS basica e dominio principal.
-- Logs por projeto com filtro por tipo.
-- Deploy manual com fila em background.
-- Modo dry run por padrao para clonar/detectar sem alterar containers.
-- Modo Docker real via flags de ambiente.
-- Compose local com Postgres, Redis, backend e frontend.
-- Nginx de exemplo para painel e proxy por projeto.
+## Destaques
 
-## Rodando localmente com Docker
+- Frontend React + TypeScript + Tailwind com visual dark, azul neon, glassmorphism, microinteracoes e logo Apex Host.
+- Backend FastAPI com JWT, senha com hash, rate limit de login, auditoria e validacoes de entrada.
+- PostgreSQL em producao, SQLite local por padrao simples, Redis/RQ para fila de deploy.
+- CRUD de projetos, wizard em etapas, GitHub manual/OAuth, webhook de push e deploy manual/automatico.
+- Variaveis de ambiente criptografadas, mascaradas por padrao e revelacao temporaria auditada.
+- Dominios customizados com checagem DNS, dominio principal e endpoint preparado para Certbot.
+- Deploy dry run por padrao, cancelamento, historico, logs, rollback preparado e modo Docker real por flags.
+- Monitoramento basico do servidor e stats por container quando Docker estiver disponivel.
+- Estrutura preparada para Admin, Dev e Viewer com permissoes por projeto.
 
-```bash
-cd apex-host
-cp .env.example .env
-docker compose up -d --build
-```
-
-Acesse:
-
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8000
-- Healthcheck: http://localhost:8000/health
-
-Credenciais iniciais, se voce nao mudar o `.env`:
-
-- Email: `admin@apex.local`
-- Senha: `apex-admin`
-
-## Rodando sem Docker
+## Rodando localmente
 
 Backend:
 
@@ -47,6 +28,15 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+No Windows PowerShell:
+
+```powershell
+cd apex-host\backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
 Frontend:
 
 ```bash
@@ -55,54 +45,134 @@ npm install
 npm run dev
 ```
 
-## Deploys
+Acesse:
 
-Por seguranca, o MVP usa dry run por padrao. Isso permite validar cadastro, clone, deteccao e logs sem executar comandos arbitrarios de repositorios.
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8000
+- Healthcheck: http://localhost:8000/health
 
-Para habilitar deploy real com Docker, edite `.env`:
+Credenciais iniciais:
+
+- Email: `admin@apex.local`
+- Senha: `apex-admin`
+
+## Docker Compose
+
+```bash
+cd apex-host
+cp .env.example .env
+docker compose up -d --build
+```
+
+Servicos previstos:
+
+- `postgres`: banco principal.
+- `redis`: fila/cache.
+- `backend`: API FastAPI.
+- `worker`: executor de deploys RQ.
+- `frontend`: painel React.
+
+## Variaveis importantes
+
+```env
+SECRET_KEY=change-this-long-random-secret
+ADMIN_EMAIL=admin@apex.local
+ADMIN_PASSWORD=apex-admin
+
+DATABASE_URL=postgresql+psycopg://apex_host:apex_host@postgres:5432/apex_host
+REDIS_URL=redis://redis:6379/0
+BACKEND_CORS_ORIGINS=http://localhost:5173
+
+ENABLE_DOCKER_DEPLOYS=false
+ENABLE_BUILD_COMMANDS=false
+USE_REDIS_DEPLOY_QUEUE=true
+
+BASE_DOMAIN=apexhost.local
+NGINX_SITES_DIR=
+CERTBOT_ENABLED=false
+CERTBOT_EMAIL=
+
+GITHUB_OAUTH_CLIENT_ID=
+GITHUB_OAUTH_CLIENT_SECRET=
+GITHUB_OAUTH_REDIRECT_URL=http://localhost:8000/api/github/oauth/callback
+GITHUB_WEBHOOK_SECRET=
+```
+
+## Dry Run vs Producao
+
+Dry run e o modo seguro padrao. Ele permite validar cadastro, clone, deteccao, logs e fluxo de deploy sem alterar containers reais.
+
+Producao exige ativar explicitamente:
 
 ```env
 ENABLE_DOCKER_DEPLOYS=true
 ENABLE_BUILD_COMMANDS=true
 NGINX_SITES_DIR=/etc/nginx/sites-available/apex-host-projects
-BASE_DOMAIN=apexhost.com
+CERTBOT_ENABLED=true
 ```
 
-Depois reinicie o backend.
-
-O fluxo real executa:
+O deploy real:
 
 1. Clona ou atualiza o repositorio.
-2. Detecta tecnologia quando possivel.
-3. Executa install/build se liberado.
-4. Gera Dockerfile runtime quando necessario.
-5. Builda imagem Docker.
-6. Sobe container com variaveis de ambiente.
-7. Escreve configuracao Nginx se `NGINX_SITES_DIR` estiver definido.
+2. Opcionalmente faz checkout do commit de rollback.
+3. Detecta tecnologia quando o projeto ainda esta manual.
+4. Valida comandos permitidos.
+5. Executa install/build se liberado.
+6. Gera Dockerfile runtime quando necessario.
+7. Sobe container com envs criptografadas aplicadas.
+8. Escreve Nginx, roda `nginx -t` e recarrega se passar.
 
-## Preparacao para VPS Ubuntu
+## GitHub OAuth e Webhook
 
-```bash
-cd apex-host
-bash scripts/setup_vps.sh
-cp .env.example .env
+OAuth:
+
+```text
+GET /api/github/oauth/start
+GET /api/github/oauth/callback
+GET /api/github/connection
+GET /api/github/repos
 ```
 
-Configure:
+Webhook:
 
-- `SECRET_KEY` com valor longo e unico.
-- `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
-- `BASE_DOMAIN` para o dominio wildcard da plataforma.
-- `BACKEND_CORS_ORIGINS` com a URL real do painel.
-- `NGINX_SITES_DIR` caso queira que o backend escreva configs de proxy.
-
-Suba a stack:
-
-```bash
-docker compose up -d --build
+```text
+POST /api/github/webhook
 ```
 
-Para SSL do painel:
+O webhook valida `X-Hub-Signature-256` quando `GITHUB_WEBHOOK_SECRET` estiver configurado, registra o evento, encontra projetos por `github_repo_full_name` e enfileira deploy automatico quando a branch bate.
+
+## Seguranca
+
+Implementado:
+
+- Senhas com hash.
+- JWT com expiracao configuravel.
+- Rate limit in-memory para login.
+- Auditoria para login, logout, projeto, envs, dominios, deploy e rollback.
+- Variaveis sensiveis criptografadas e mascaradas por padrao.
+- Revelacao temporaria de segredo com evento de auditoria.
+- Validacao de slug, branch, dominio e comandos.
+- Bloqueio de chaining/redirecionamento em comandos de build.
+- Mascaramento de segredos em logs de deploy.
+- RBAC preparado por projeto: Admin, Dev e Viewer.
+
+Checklist antes de producao:
+
+- Trocar `SECRET_KEY`, `ADMIN_PASSWORD` e todos os secrets.
+- Usar Postgres real e rodar `alembic upgrade head`.
+- Definir `AUTO_CREATE_TABLES=false`.
+- Configurar HTTPS no painel.
+- Configurar `BACKEND_CORS_ORIGINS` com dominios reais.
+- Habilitar GitHub OAuth/webhook com secrets reais.
+- Habilitar Docker/Nginx/Certbot somente na VPS correta.
+- Revisar `ALLOWED_COMMAND_PREFIXES`.
+- Rodar o backend com usuario de menor privilegio possivel.
+- Separar rede de apps hospedados da rede do painel.
+- Configurar backups automaticos do Postgres e arquivos criticos.
+
+## Nginx e SSL
+
+Painel:
 
 ```bash
 sudo cp nginx/apex-host.conf /etc/nginx/sites-available/apex-host.conf
@@ -112,164 +182,46 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d host.apextechnologies.com.br
 ```
 
-## Backups
+Projetos hospedados:
 
-Backup simples do Postgres:
+- Configure `BASE_DOMAIN`.
+- Configure wildcard DNS se quiser subdominios automaticos.
+- Configure `NGINX_SITES_DIR`.
+- Use o endpoint de SSL por dominio ou rode Certbot manualmente.
+
+## Backups
 
 ```bash
 bash scripts/backup_postgres.sh
 ```
 
-## Proximos passos tecnicos
+Recomendado em producao:
 
-- Configurar credenciais reais de GitHub OAuth e webhook nos ambientes de homologacao/producao.
-- Rodar `alembic upgrade head` e definir `AUTO_CREATE_TABLES=false` em producao.
-- Configurar Certbot/Nginx real na VPS e validar emissoes SSL com dominios reais.
-- Evoluir RBAC completo, usuarios, planos, cobranca e limites por recurso.
-- Ampliar metricas historicas e alertas por projeto.
+- Backup diario do Postgres.
+- Backup das configs Nginx geradas.
+- Backup de `.env` em cofre seguro, nunca no Git.
+- Teste periodico de restauracao.
 
-## Fase 2
+## Qualidade
 
-A Fase 2 evolui o MVP para uma base mais automatizada e pronta para operacao real, mantendo o modo dry run como caminho seguro.
-
-### Identidade visual
-
-- Tema dark atualizado para azul neon, com glassmorphism, bordas azuladas, glow e animacoes leves.
-- Simbolo oficial em `frontend/public/apex-symbol.svg`: letra A futurista dentro de um escudo/hexagono digital.
-- Simbolo aplicado no login, sidebar, header e favicon.
-- Login com animacao de energia, brilho no simbolo, barra de progresso e transicao suave para o dashboard.
-
-### GitHub webhook
-
-Novo endpoint:
-
-```text
-POST /api/github/webhook
-```
-
-O webhook:
-
-- Valida `X-Hub-Signature-256` quando `GITHUB_WEBHOOK_SECRET` estiver configurado.
-- Salva o evento recebido em `webhook_events`.
-- Detecta push para a branch configurada do projeto.
-- Enfileira deploy automatico com tipo `automatic`.
-- Registra logs do webhook no projeto/deploy.
-
-Para associar um projeto ao webhook, preencha `github_repo_full_name` com o formato `org/repo`. Ao criar projeto pela UI, se a conta GitHub estiver conectada, isso e preenchido a partir do repositorio selecionado.
-
-### OAuth GitHub
-
-Novas rotas:
-
-```text
-GET /api/github/oauth/start
-GET /api/github/oauth/callback
-GET /api/github/connection
-GET /api/github/repos
-```
-
-Configure:
-
-```env
-GITHUB_OAUTH_CLIENT_ID=
-GITHUB_OAUTH_CLIENT_SECRET=
-GITHUB_OAUTH_REDIRECT_URL=http://localhost:8000/api/github/oauth/callback
-```
-
-O token recebido e salvo criptografado com a mesma camada usada para variaveis secretas. A tela de Configuracoes permite conectar ou reconectar a conta.
-
-### Worker dedicado para deploys
-
-Deploys agora sao enviados para uma fila Redis/RQ:
+Validacoes usadas durante desenvolvimento:
 
 ```bash
 cd backend
-python -m app.worker
+python -m compileall app
+
+cd ../frontend
+npm run build
 ```
 
-No Docker Compose, o servico `worker` ja foi adicionado. A API cria o deploy, grava status `queued` e o worker executa em segundo plano. O fallback `USE_REDIS_DEPLOY_QUEUE=false` executa localmente para ambientes simples.
+## Roadmap
 
-Status suportados:
-
-- `queued`
-- `running`
-- `success`
-- `failed`
-- `canceled`
-
-### Historico completo de deploys
-
-Cada deploy agora guarda:
-
-- Projeto, branch, commit, autor, mensagem e tipo (`manual` ou `automatic`).
-- Status, duracao, logs, erro, inicio e fim.
-- `dry_run`, `queue_job_id` e data de solicitacao de cancelamento.
-
-### Cancelamento real
-
-O botao Cancelar marca o deploy como `canceled`. O worker monitora esse status durante comandos longos e encerra o subprocesso com `terminate`; se necessario, finaliza com `kill`. O cancelamento tambem e registrado em log.
-
-### Nginx seguro
-
-Ao gerar config de proxy por projeto, o backend agora:
-
-1. Escreve o arquivo em `NGINX_SITES_DIR`.
-2. Executa `NGINX_TEST_COMMAND`, por padrao `nginx -t`.
-3. So executa `NGINX_RELOAD_COMMAND` se a validacao passar.
-4. Salva erros de validacao/reload nos logs do deploy.
-
-### SSL com Certbot
-
-Novo endpoint por dominio:
-
-```text
-POST /api/projects/{project_id}/domains/{domain_id}/ssl
-```
-
-Com `CERTBOT_ENABLED=false`, ele fica em modo preparado/dry run e marca `ssl_status=dry_run_ready`. Com Certbot habilitado, executa emissao via `certbot --nginx -d dominio`.
-
-### Isolamento Docker
-
-Deploys Docker passam a usar uma rede de apps separada:
-
-```env
-DOCKER_APPS_NETWORK=apex-host-apps
-DOCKER_CPU_LIMIT=
-DOCKER_MEMORY_LIMIT=
-```
-
-O backend cria a rede se necessario e aplica limites globais ou por projeto (`cpu_limit`, `memory_limit`). Isso separa containers hospedados da rede interna do painel.
-
-### Monitoramento por container
-
-O endpoint de monitoramento do projeto inclui `docker stats` e `docker inspect` para expor CPU, RAM, rede, status, uptime e reinicios quando Docker estiver disponivel:
-
-```text
-GET /api/monitor/projects/{project_id}
-```
-
-### Alembic
-
-Alembic foi adicionado em `backend/alembic`.
-
-Rodar migrations:
-
-```bash
-cd backend
-alembic upgrade head
-```
-
-Gerar nova migration:
-
-```bash
-cd backend
-alembic revision --autogenerate -m "descricao"
-```
-
-Para producao, configure:
-
-```env
-AUTO_CREATE_TABLES=false
-```
-
-Assim o backend deixa de depender de `create_all` e o schema passa a ser controlado por migrations.
+- Worker dedicado com progresso em tempo real por WebSocket/SSE.
+- Health checks HTTP por projeto com alertas visuais.
+- Metricas historicas de CPU/RAM/restarts.
+- Rollback Docker completo para imagem/tag imutavel por deploy.
+- Upload ZIP e deploy de projetos estaticos sem Git.
+- CRUD completo de usuarios e convites.
+- Planos, limites e cobranca futura.
+- Pagina publica de status.
+- Templates de projeto e presets por framework.

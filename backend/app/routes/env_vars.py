@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret
 from app.db.session import get_db
-from app.deps import get_current_user, require_project_access
+from app.deps import get_current_user, require_project_access, require_project_permission
 from app.models import EnvironmentVariable, LogEntry, User
-from app.schemas import EnvVarCreate, EnvVarRead, EnvVarUpdate
+from app.schemas import EnvVarCreate, EnvVarRead, EnvVarRevealRead, EnvVarUpdate
+from app.services.audit import record_audit
 
 
 router = APIRouter(prefix="/projects/{project_id}/env", tags=["environment"])
@@ -30,7 +31,7 @@ def list_env_vars(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[EnvVarRead]:
-    require_project_access(project_id, db, user)
+    require_project_permission(project_id, db, user, "edit")
     items = db.query(EnvironmentVariable).filter(EnvironmentVariable.project_id == project_id).order_by(EnvironmentVariable.key).all()
     return [_read(item) for item in items]
 
@@ -57,6 +58,15 @@ def create_env_var(
     )
     db.add(item)
     db.add(LogEntry(project_id=project_id, type="system", message=f"Environment variable {payload.key} created"))
+    record_audit(
+        db,
+        "env.created",
+        user=user,
+        project_id=project_id,
+        target_type="environment_variable",
+        target_id=payload.key,
+        details={"is_secret": payload.is_secret},
+    )
     db.commit()
     db.refresh(item)
     return _read(item)
@@ -70,7 +80,7 @@ def update_env_var(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> EnvVarRead:
-    require_project_access(project_id, db, user)
+    require_project_permission(project_id, db, user, "edit")
     item = db.get(EnvironmentVariable, env_id)
     if item is None or item.project_id != project_id:
         raise HTTPException(status_code=404, detail="Environment variable not found")
@@ -79,6 +89,15 @@ def update_env_var(
         item.value_encrypted = encrypt_secret(data["value"])
     if "is_secret" in data and data["is_secret"] is not None:
         item.is_secret = data["is_secret"]
+    record_audit(
+        db,
+        "env.updated",
+        user=user,
+        project_id=project_id,
+        target_type="environment_variable",
+        target_id=item.key,
+        details={"fields": sorted(data.keys())},
+    )
     db.commit()
     db.refresh(item)
     return _read(item)
@@ -91,11 +110,42 @@ def delete_env_var(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, bool]:
-    require_project_access(project_id, db, user)
+    require_project_permission(project_id, db, user, "edit")
     item = db.get(EnvironmentVariable, env_id)
     if item is None or item.project_id != project_id:
         raise HTTPException(status_code=404, detail="Environment variable not found")
     db.delete(item)
     db.add(LogEntry(project_id=project_id, type="system", message=f"Environment variable {item.key} removed"))
+    record_audit(
+        db,
+        "env.deleted",
+        user=user,
+        project_id=project_id,
+        target_type="environment_variable",
+        target_id=item.key,
+    )
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{env_id}/reveal", response_model=EnvVarRevealRead)
+def reveal_env_var(
+    project_id: int,
+    env_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EnvVarRevealRead:
+    require_project_permission(project_id, db, user, "edit")
+    item = db.get(EnvironmentVariable, env_id)
+    if item is None or item.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Environment variable not found")
+    record_audit(
+        db,
+        "env.revealed",
+        user=user,
+        project_id=project_id,
+        target_type="environment_variable",
+        target_id=item.key,
+    )
+    db.commit()
+    return EnvVarRevealRead(id=item.id, key=item.key, value=decrypt_secret(item.value_encrypted))

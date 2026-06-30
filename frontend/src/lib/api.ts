@@ -108,6 +108,7 @@ export type DashboardStats = {
   server: ServerMetric;
   recent_deploys: Deploy[];
   recent_logs: LogEntry[];
+  recent_projects: Project[];
 };
 
 export type GitHubRepo = {
@@ -122,6 +123,25 @@ export type GitHubConnection = {
   login: string | null;
   scope: string | null;
   connected_at: string | null;
+};
+
+export type EnvVarReveal = {
+  id: number;
+  key: string;
+  value: string;
+  expires_in_seconds: number;
+};
+
+export type AuditLog = {
+  id: number;
+  user_id: number | null;
+  project_id: number | null;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  ip_address: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
 };
 
 export function getToken() {

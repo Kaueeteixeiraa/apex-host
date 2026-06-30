@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models import Project, User
+from app.models import Project, ProjectMember, User
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -34,9 +34,25 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
 
 
 def require_project_access(project_id: int, db: Session, user: User) -> Project:
+    return require_project_permission(project_id, db, user, "view")
+
+
+def require_project_permission(project_id: int, db: Session, user: User, permission: str) -> Project:
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and project.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Project access denied")
+    if user.role == "admin" or project.owner_id == user.id:
+        return project
+    membership = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user.id,
+    ).first()
+    allowed = {
+        "view": bool(membership and membership.can_view),
+        "edit": bool(membership and membership.can_edit),
+        "deploy": bool(membership and membership.can_deploy),
+        "delete": bool(membership and membership.can_delete),
+    }
+    if not allowed.get(permission, False):
+        raise HTTPException(status_code=403, detail=f"Project {permission} access denied")
     return project

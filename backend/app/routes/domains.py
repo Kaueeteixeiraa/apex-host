@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.config import get_settings
-from app.deps import get_current_user, require_project_access
+from app.deps import get_current_user, require_project_access, require_project_permission
 from app.models import Domain, LogEntry, Project, User
 from app.schemas import DomainCreate, DomainRead, DomainUpdate
+from app.services.audit import record_audit
+from app.services.validators import validate_domain
 
 
 router = APIRouter(prefix="/projects/{project_id}/domains", tags=["domains"])
@@ -39,8 +41,8 @@ def create_domain(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Domain:
-    project = require_project_access(project_id, db, user)
-    hostname = payload.hostname.lower().strip()
+    project = require_project_permission(project_id, db, user, "edit")
+    hostname = validate_domain(payload.hostname)
     exists = db.query(Domain).filter(Domain.project_id == project_id, Domain.hostname == hostname).first()
     if exists:
         raise HTTPException(status_code=409, detail="Domain already exists")
@@ -55,6 +57,15 @@ def create_domain(
     )
     db.add(domain)
     db.add(LogEntry(project_id=project_id, type="system", message=f"Domain {hostname} added"))
+    record_audit(
+        db,
+        "domain.created",
+        user=user,
+        project_id=project_id,
+        target_type="domain",
+        target_id=hostname,
+        details={"is_primary": payload.is_primary},
+    )
     db.commit()
     db.refresh(domain)
     return domain
@@ -72,6 +83,7 @@ def check_domain(
     if domain is None or domain.project_id != project_id:
         raise HTTPException(status_code=404, detail="Domain not found")
     domain.dns_status = _dns_status(domain.hostname)
+    record_audit(db, "domain.checked", user=user, project_id=project_id, target_type="domain", target_id=domain.hostname)
     db.commit()
     db.refresh(domain)
     return domain
@@ -85,7 +97,7 @@ def update_domain(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Domain:
-    project = require_project_access(project_id, db, user)
+    project = require_project_permission(project_id, db, user, "edit")
     domain = db.get(Domain, domain_id)
     if domain is None or domain.project_id != project_id:
         raise HTTPException(status_code=404, detail="Domain not found")
@@ -95,6 +107,15 @@ def update_domain(
         project.primary_domain = domain.hostname
     for key, value in data.items():
         setattr(domain, key, value)
+    record_audit(
+        db,
+        "domain.updated",
+        user=user,
+        project_id=project_id,
+        target_type="domain",
+        target_id=domain.hostname,
+        details={"fields": sorted(data.keys())},
+    )
     db.commit()
     db.refresh(domain)
     return domain
@@ -107,10 +128,11 @@ def delete_domain(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, bool]:
-    require_project_access(project_id, db, user)
+    require_project_permission(project_id, db, user, "edit")
     domain = db.get(Domain, domain_id)
     if domain is None or domain.project_id != project_id:
         raise HTTPException(status_code=404, detail="Domain not found")
+    record_audit(db, "domain.deleted", user=user, project_id=project_id, target_type="domain", target_id=domain.hostname)
     db.delete(domain)
     db.commit()
     return {"ok": True}
@@ -123,7 +145,7 @@ def issue_ssl(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Domain:
-    require_project_access(project_id, db, user)
+    require_project_permission(project_id, db, user, "edit")
     domain = db.get(Domain, domain_id)
     if domain is None or domain.project_id != project_id:
         raise HTTPException(status_code=404, detail="Domain not found")
@@ -131,6 +153,7 @@ def issue_ssl(
     if not settings.certbot_enabled:
         domain.ssl_status = "dry_run_ready"
         db.add(LogEntry(project_id=project_id, type="ssl", message=f"SSL dry run prepared for {domain.hostname}"))
+        record_audit(db, "domain.ssl_dry_run", user=user, project_id=project_id, target_type="domain", target_id=domain.hostname)
         db.commit()
         db.refresh(domain)
         return domain
@@ -148,6 +171,15 @@ def issue_ssl(
         domain.ssl_status = "failed"
         message = result.stderr or result.stdout or "Certbot failed"
     db.add(LogEntry(project_id=project_id, type="ssl", message=message[:4000]))
+    record_audit(
+        db,
+        "domain.ssl_requested",
+        user=user,
+        project_id=project_id,
+        target_type="domain",
+        target_id=domain.hostname,
+        details={"status": domain.ssl_status},
+    )
     db.commit()
     db.refresh(domain)
     return domain

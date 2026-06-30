@@ -15,6 +15,7 @@ from app.db.session import SessionLocal
 from app.deploy.detector import detect_project_type
 from app.models import Deploy, EnvironmentVariable, LogEntry, Project
 from app.services.projects import allocate_host_port
+from app.services.validators import validate_command
 
 
 class DeployCanceled(Exception):
@@ -24,14 +25,28 @@ class DeployCanceled(Exception):
 RUNNING_PROCESSES: dict[int, subprocess.Popen[str]] = {}
 
 
+def _mask_project_secrets(db: Session, project_id: int, message: str) -> str:
+    masked = message
+    env_vars = db.query(EnvironmentVariable).filter(EnvironmentVariable.project_id == project_id).all()
+    for item in env_vars:
+        try:
+            value = decrypt_secret(item.value_encrypted)
+        except Exception:
+            continue
+        if value and len(value) >= 4:
+            masked = masked.replace(value, "********")
+    return masked
+
+
 def append_deploy_log(db: Session, deploy: Deploy, level: str, message: str) -> None:
-    deploy.logs = f"{deploy.logs or ''}[{level}] {message}\n"
+    safe_message = _mask_project_secrets(db, deploy.project_id, message)
+    deploy.logs = f"{deploy.logs or ''}[{level}] {safe_message}\n"
     db.add(
         LogEntry(
             project_id=deploy.project_id,
             deploy_id=deploy.id,
             type=level,
-            message=message,
+            message=safe_message,
         )
     )
     db.commit()
@@ -99,13 +114,9 @@ def _run_deploy_command(
 
 
 def _validate_shell_command(command: str) -> list[str]:
-    settings = get_settings()
-    parts = shlex.split(command)
+    parts = shlex.split(validate_command(command) or "")
     if not parts:
         raise ValueError("Empty command")
-    executable = parts[0]
-    if executable not in settings.allowed_commands:
-        raise ValueError(f"Command '{executable}' is not allowed")
     return parts
 
 
@@ -134,6 +145,12 @@ def _clone_or_update_repo(db: Session, deploy: Deploy, project: Project, repo_pa
             raise RuntimeError(result.stderr or result.stdout or f"Command failed: {' '.join(command)}")
         if result.stdout.strip():
             append_deploy_log(db, deploy, "deploy", result.stdout.strip()[-2000:])
+
+    if deploy.deploy_type == "rollback" and deploy.commit_sha:
+        append_deploy_log(db, deploy, "deploy", f"Checking out rollback commit {deploy.commit_sha[:12]}")
+        result = _run_deploy_command(db, deploy, ["git", "checkout", deploy.commit_sha], repo_path, settings.deploy_timeout_seconds)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr or result.stdout or "Rollback checkout failed")
 
 
 def _current_commit(repo_path: Path) -> str | None:

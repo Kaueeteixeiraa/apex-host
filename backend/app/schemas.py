@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.validators import validate_branch, validate_command, validate_domain, validate_slug
+
 
 class Token(BaseModel):
     access_token: str
@@ -49,6 +51,26 @@ class ProjectBase(BaseModel):
             raise ValueError("Port must be between 1 and 65535")
         return value
 
+    @field_validator("slug")
+    @classmethod
+    def valid_slug(cls, value: str | None) -> str | None:
+        return validate_slug(value) if value else value
+
+    @field_validator("branch")
+    @classmethod
+    def valid_branch(cls, value: str) -> str:
+        return validate_branch(value)
+
+    @field_validator("install_command", "build_command", "start_command")
+    @classmethod
+    def valid_command(cls, value: str | None) -> str | None:
+        return validate_command(value)
+
+    @field_validator("primary_domain")
+    @classmethod
+    def valid_primary_domain(cls, value: str | None) -> str | None:
+        return validate_domain(value) if value else value
+
 
 class ProjectCreate(ProjectBase):
     pass
@@ -70,6 +92,26 @@ class ProjectUpdate(BaseModel):
     internal_port: int | None = None
     primary_domain: str | None = Field(default=None, max_length=255)
     status: str | None = Field(default=None, max_length=50)
+
+    @field_validator("slug")
+    @classmethod
+    def valid_slug(cls, value: str | None) -> str | None:
+        return validate_slug(value) if value else value
+
+    @field_validator("branch")
+    @classmethod
+    def valid_branch(cls, value: str | None) -> str | None:
+        return validate_branch(value) if value else value
+
+    @field_validator("install_command", "build_command", "start_command")
+    @classmethod
+    def valid_command(cls, value: str | None) -> str | None:
+        return validate_command(value)
+
+    @field_validator("primary_domain")
+    @classmethod
+    def valid_primary_domain(cls, value: str | None) -> str | None:
+        return validate_domain(value) if value else value
 
 
 class ProjectRead(BaseModel):
@@ -123,8 +165,20 @@ class EnvVarRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EnvVarRevealRead(BaseModel):
+    id: int
+    key: str
+    value: str
+    expires_in_seconds: int = 30
+
+
 class DeployRequest(BaseModel):
     dry_run: bool | None = None
+
+
+class RollbackRequest(BaseModel):
+    dry_run: bool | None = None
+    target_deploy_id: int | None = None
 
 
 class DeployRead(BaseModel):
@@ -151,6 +205,11 @@ class DeployRead(BaseModel):
 class DomainCreate(BaseModel):
     hostname: str = Field(min_length=3, max_length=255)
     is_primary: bool = False
+
+    @field_validator("hostname")
+    @classmethod
+    def valid_hostname(cls, value: str) -> str:
+        return validate_domain(value)
 
 
 class DomainUpdate(BaseModel):
@@ -206,6 +265,7 @@ class DashboardStats(BaseModel):
     server: ServerMetric
     recent_deploys: list[DeployRead]
     recent_logs: list[LogRead]
+    recent_projects: list[ProjectRead]
 
 
 class GitHubRepoRead(BaseModel):
@@ -233,6 +293,20 @@ class WebhookEventRead(BaseModel):
     commit_message: str | None
     matched: bool
     action: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AuditLogRead(BaseModel):
+    id: int
+    user_id: int | None
+    project_id: int | None
+    action: str
+    target_type: str | None
+    target_id: str | None
+    ip_address: str | None
+    details: dict[str, Any]
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

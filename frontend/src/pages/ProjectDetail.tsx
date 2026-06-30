@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Pause, Play, RotateCcw, Save, Square } from "lucide-react";
+import { ExternalLink, GitBranch, Pause, Play, RotateCcw, Rocket, Save, Square, TerminalSquare } from "lucide-react";
 
-import { api, Project } from "../lib/api";
+import { api, Deploy, formatDate, Project } from "../lib/api";
+import { FeedbackBanner } from "../components/FeedbackBanner";
+import { PageHeader } from "../components/PageHeader";
 import { ProjectTabs } from "../components/ProjectTabs";
 import { StatusBadge } from "../components/StatusBadge";
 
@@ -57,19 +59,46 @@ export function ProjectDetail() {
     setForm(updated);
   };
 
+  const redeploy = async () => {
+    const deploy = await api<Deploy>(`/projects/${projectId}/deploys`, {
+      method: "POST",
+      body: JSON.stringify({ dry_run: true })
+    });
+    setMessage(`Deploy dry run #${deploy.id} enfileirado.`);
+  };
+
   if (error) return <div className="panel p-5 text-red-200">{error}</div>;
   if (!project) return <div className="panel p-5 text-apex-muted">Carregando projeto...</div>;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <h1 className="page-title">{project.name}</h1>
-          <p className="muted mt-1">{project.primary_domain || project.auto_subdomain}</p>
-        </div>
-        <StatusBadge status={project.status} />
-      </div>
+      <PageHeader
+        eyebrow="Project Overview"
+        title={project.name}
+        description={project.primary_domain || project.auto_subdomain}
+        icon={TerminalSquare}
+        actions={
+          <>
+            <a className="btn-secondary" href={`https://${project.primary_domain || project.auto_subdomain}`} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              Abrir site
+            </a>
+            <button className="btn-primary" onClick={() => void redeploy()}>
+              <Rocket className="h-4 w-4" />
+              Redeploy
+            </button>
+          </>
+        }
+      />
+      {message ? <FeedbackBanner type="success" message={message} /> : null}
       <ProjectTabs projectId={project.id} />
+
+      <section className="grid gap-4 md:grid-cols-4">
+        <OverviewCard label="Status" value={<StatusBadge status={project.status} />} />
+        <OverviewCard label="Branch" value={project.branch} icon={<GitBranch className="h-4 w-4 text-apex-cyan" />} />
+        <OverviewCard label="Framework" value={project.project_type} />
+        <OverviewCard label="Ultimo deploy" value={formatDate(project.last_deploy_at)} />
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <form className="panel grid gap-4 p-4 md:grid-cols-2" onSubmit={submit}>
@@ -118,7 +147,6 @@ export function ProjectDetail() {
             <label className="label">Dominio principal</label>
             <input className="field" value={form.primary_domain || ""} onChange={(event) => setForm({ ...form, primary_domain: event.target.value })} />
           </div>
-          {message ? <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200 md:col-span-2">{message}</div> : null}
           <div className="md:col-span-2">
             <button className="btn-primary">
               <Save className="h-4 w-4" />
@@ -150,6 +178,18 @@ export function ProjectDetail() {
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function OverviewCard({ label, value, icon }: { label: string; value: string | JSX.Element; icon?: JSX.Element }) {
+  return (
+    <div className="panel p-4">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-[0.12em] text-apex-muted">{label}</div>
+        {icon}
+      </div>
+      <div className="mt-3 text-sm font-medium text-white">{value}</div>
     </div>
   );
 }

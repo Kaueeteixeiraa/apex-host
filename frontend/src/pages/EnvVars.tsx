@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
 
-import { api, EnvVar } from "../lib/api";
+import { api, EnvVar, EnvVarReveal } from "../lib/api";
+import { FeedbackBanner } from "../components/FeedbackBanner";
+import { PageHeader } from "../components/PageHeader";
 import { ProjectSelector } from "../components/ProjectSelector";
 import { ProjectTabs } from "../components/ProjectTabs";
 import { useProjectScope } from "../lib/useProjectScope";
@@ -14,6 +16,8 @@ export function EnvVars() {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const [secret, setSecret] = useState(true);
+  const [revealed, setRevealed] = useState<Record<number, string>>({});
+  const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
     if (!selectedId) return;
@@ -34,24 +38,42 @@ export function EnvVars() {
     setKey("");
     setValue("");
     setSecret(true);
+    setMessage(`Variavel ${key} salva com seguranca.`);
     await load();
   };
 
   const remove = async (id: number) => {
     if (!selectedId) return;
+    if (!confirm("Remover esta variavel de ambiente?")) return;
     await api(`/projects/${selectedId}/env/${id}`, { method: "DELETE" });
     await load();
+  };
+
+  const reveal = async (id: number) => {
+    if (!selectedId) return;
+    const data = await api<EnvVarReveal>(`/projects/${selectedId}/env/${id}/reveal`);
+    setRevealed((current) => ({ ...current, [id]: data.value }));
+    window.setTimeout(() => {
+      setRevealed((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    }, data.expires_in_seconds * 1000);
   };
 
   if (error) return <div className="panel p-5 text-red-200">{error}</div>;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="page-title">Variaveis de ambiente</h1>
-        <p className="muted mt-1">Valores sensiveis sao criptografados no backend e mascarados na UI.</p>
-      </div>
+      <PageHeader
+        eyebrow="Secrets"
+        title="Variaveis de ambiente"
+        description="Valores sensiveis sao criptografados, mascarados por padrao e revelados apenas temporariamente com auditoria."
+        icon={KeyRound}
+      />
       {selectedProject ? <ProjectTabs projectId={selectedProject.id} /> : null}
+      {message ? <FeedbackBanner type="success" message={message} /> : null}
       {loading ? <div className="panel p-5 text-apex-muted">Carregando projetos...</div> : null}
       <ProjectSelector projects={projects} selectedId={selectedId} onChange={setSelectedId} />
       {selectedId ? (
@@ -79,11 +101,19 @@ export function EnvVars() {
               <div key={item.id} className="flex flex-col gap-3 border-b border-apex-line p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-medium text-white">{item.key}</div>
-                  <div className="mt-1 font-mono text-xs text-apex-muted">{item.masked_value}</div>
+                  <div className="mt-1 font-mono text-xs text-apex-muted">{revealed[item.id] || item.masked_value}</div>
                 </div>
-                <button className="btn-danger" onClick={() => void remove(item.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex gap-2">
+                  {item.is_secret ? (
+                    <button className="btn-secondary" onClick={() => (revealed[item.id] ? setRevealed(({ [item.id]: _, ...rest }) => rest) : void reveal(item.id))}>
+                      {revealed[item.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {revealed[item.id] ? "Ocultar" : "Revelar"}
+                    </button>
+                  ) : null}
+                  <button className="btn-danger" onClick={() => void remove(item.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
             {items.length === 0 ? <div className="p-5 text-apex-muted">Nenhuma variavel cadastrada.</div> : null}

@@ -35,7 +35,7 @@ textarea {
 
 @layer components {
   .panel {
-    @apply rounded-lg border border-apex-line/80 bg-apex-panel/70 shadow-neon backdrop-blur-xl;
+    @apply rounded-lg border border-apex-line/80 bg-apex-panel/70 shadow-neon backdrop-blur-xl transition duration-300;
   }
 
   .field {
@@ -47,11 +47,11 @@ textarea {
   }
 
   .btn-primary {
-    @apply btn border-apex-cyan/70 bg-apex-blue text-white shadow-glow hover:bg-[#0a7dff];
+    @apply btn border-apex-cyan/70 bg-apex-blue text-white shadow-glow hover:-translate-y-0.5 hover:bg-[#0a7dff] hover:shadow-neon active:translate-y-0;
   }
 
   .btn-secondary {
-    @apply btn bg-[#06172c] text-apex-text hover:border-apex-cyan/60 hover:bg-[#08213f] hover:text-white;
+    @apply btn bg-[#06172c] text-apex-text hover:-translate-y-0.5 hover:border-apex-cyan/60 hover:bg-[#08213f] hover:text-white active:translate-y-0;
   }
 
   .btn-danger {
@@ -69,6 +69,14 @@ textarea {
   .muted {
     @apply text-sm text-apex-muted;
   }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-apex-cyan/80;
+  }
+
+  .terminal {
+    @apply rounded-lg border border-apex-line bg-black/55 font-mono text-xs text-[#b9e8ff] shadow-inner;
+  }
 }
 
 .apex-grid {
@@ -80,6 +88,16 @@ textarea {
 
 .dashboard-enter {
   animation: dashboard-enter 520ms ease both;
+}
+
+.stagger-in {
+  animation: dashboard-enter 520ms ease both;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(20, 54, 95, 0.35), rgba(24, 182, 255, 0.16), rgba(20, 54, 95, 0.35));
+  background-size: 220% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 
 .energy-ring {
@@ -114,5 +132,11 @@ textarea {
   }
   50% {
     filter: drop-shadow(0 0 26px rgba(24, 182, 255, 0.95));
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position-x: -220%;
   }
 }

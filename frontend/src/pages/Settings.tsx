@@ -1,15 +1,18 @@
-import { Github, ShieldCheck } from "lucide-react";
+import { Github, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
-import { api, GitHubConnection } from "../lib/api";
+import { api, AuditLog, formatDate, GitHubConnection } from "../lib/api";
+import { PageHeader } from "../components/PageHeader";
 
 export function Settings() {
   const { user } = useAuth();
   const [github, setGithub] = useState<GitHubConnection | null>(null);
+  const [audit, setAudit] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     void api<GitHubConnection>("/github/connection").then(setGithub).catch(() => setGithub({ connected: false, login: null, scope: null, connected_at: null }));
+    void api<AuditLog[]>("/audit?limit=8").then(setAudit).catch(() => setAudit([]));
   }, []);
 
   const connectGithub = async () => {
@@ -19,10 +22,12 @@ export function Settings() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="page-title">Configuracoes</h1>
-        <p className="muted mt-1">Base administrativa e parametros para crescer para planos e usuarios.</p>
-      </div>
+      <PageHeader
+        eyebrow="Control Room"
+        title="Configuracoes"
+        description="Conta, GitHub, flags de deploy, papeis de acesso e trilha de auditoria."
+        icon={ShieldCheck}
+      />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="panel p-4">
@@ -86,6 +91,44 @@ export function Settings() {
               <div className="mt-2 text-white">Livre para admin</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="panel p-4">
+          <div className="mb-4 flex items-center gap-2 text-white">
+            <Users className="h-5 w-5 text-apex-cyan" />
+            Perfis preparados
+          </div>
+          <div className="grid gap-3">
+            {[
+              ["Admin", "Controle total da plataforma."],
+              ["Dev", "Cria projetos, deploya e consulta logs."],
+              ["Viewer", "Visualiza projetos liberados sem alterar configuracoes."]
+            ].map(([role, description]) => (
+              <div key={role} className="rounded-md border border-apex-line bg-black/20 p-3">
+                <div className="font-medium text-white">{role}</div>
+                <p className="mt-1 text-sm text-apex-muted">{description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="panel p-4">
+          <h2 className="mb-4 font-semibold text-white">Auditoria recente</h2>
+          <div className="space-y-3">
+            {audit.map((entry) => (
+              <div key={entry.id} className="rounded-md border border-apex-line bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-white">{entry.action}</span>
+                  <span className="text-xs text-apex-muted">{formatDate(entry.created_at)}</span>
+                </div>
+                <div className="mt-1 text-xs text-apex-muted">
+                  {entry.target_type || "system"} {entry.target_id ? `#${entry.target_id}` : ""}
+                </div>
+              </div>
+            ))}
+            {audit.length === 0 ? <p className="muted">Nenhum evento de auditoria registrado ainda.</p> : null}
+          </div>
         </div>
       </section>
     </div>
