@@ -7,13 +7,15 @@ from datetime import datetime
 from pathlib import Path
 from shutil import which
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import decrypt_secret
 from app.db.session import SessionLocal
 from app.deploy.detector import detect_project_type
-from app.models import Deploy, EnvironmentVariable, LogEntry, Project
+from app.models import Deploy, EnvironmentVariable, LogEntry, Project, ProjectNodeDeployment, ServerNode
+from app.services.availability import create_alert, get_or_create_availability
 from app.services.projects import allocate_host_port
 from app.services.validators import validate_command
 
@@ -234,13 +236,18 @@ def _docker_deploy(db: Session, deploy: Deploy, project: Project, repo_path: Pat
     if not which("docker"):
         raise ValueError("Docker CLI not found")
 
+    availability = get_or_create_availability(db, project)
+    previous_host_port = project.host_port
     host_port = allocate_host_port(project)
-    project.host_port = host_port
-    db.commit()
+    blue_green = availability.blue_green_enabled and previous_host_port is not None
+    candidate_port = (21000 + project.id * 100 + (deploy.id % 80)) if blue_green else host_port
+    if not blue_green:
+        project.host_port = host_port
+        db.commit()
 
     dockerfile = _write_runtime_dockerfile(project, repo_path)
-    image = f"apex-host-{project.slug}:latest"
-    container = f"apex-host-{project.slug}"
+    image = f"apex-host-{project.slug}:{deploy.id}" if blue_green else f"apex-host-{project.slug}:latest"
+    container = f"apex-host-{project.slug}-deploy-{deploy.id}" if blue_green else f"apex-host-{project.slug}"
     append_deploy_log(db, deploy, "deploy", f"Building Docker image {image}")
     result = _run_deploy_command(db, deploy, ["docker", "build", "-f", str(dockerfile), "-t", image, "."], repo_path, settings.deploy_timeout_seconds)
     if result.returncode != 0:
@@ -261,11 +268,40 @@ def _docker_deploy(db: Session, deploy: Deploy, project: Project, repo_path: Pat
         command.extend(["--memory", memory_limit])
     for key, value in env.items():
         command.extend(["-e", f"{key}={value}"])
-    command.extend(["-p", f"127.0.0.1:{host_port}:{project.internal_port}", image])
-    append_deploy_log(db, deploy, "deploy", f"Starting container on 127.0.0.1:{host_port}")
+    command.extend(["-p", f"127.0.0.1:{candidate_port}:{project.internal_port}", image])
+    append_deploy_log(db, deploy, "deploy", f"Starting {'blue/green candidate' if blue_green else 'container'} on 127.0.0.1:{candidate_port}")
     result = _run_deploy_command(db, deploy, command, repo_path, settings.deploy_timeout_seconds)
     if result.returncode != 0:
         raise RuntimeError(result.stderr or result.stdout or "Docker run failed")
+
+    if blue_green:
+        health_url = f"http://127.0.0.1:{candidate_port}{availability.health_check_path or '/'}"
+        append_deploy_log(db, deploy, "deploy", f"Checking candidate health at {health_url}")
+        try:
+            response = httpx.get(health_url, timeout=settings.default_health_check_timeout_seconds, follow_redirects=True)
+            if response.status_code >= 500:
+                raise RuntimeError(f"Candidate returned HTTP {response.status_code}")
+        except Exception as exc:
+            append_deploy_log(db, deploy, "error", f"Candidate failed health check. Keeping previous version on port {previous_host_port}: {exc}")
+            _run_command(["docker", "rm", "-f", container], repo_path, 60)
+            raise RuntimeError(f"Blue/green candidate failed health check: {exc}") from exc
+        project.host_port = candidate_port
+        node = db.query(ServerNode).filter(ServerNode.role == "primary").first()
+        if node:
+            db.add(
+                ProjectNodeDeployment(
+                    project_id=project.id,
+                    node_id=node.id,
+                    deploy_id=deploy.id,
+                    version=deploy.commit_sha or str(deploy.id),
+                    status="active",
+                    active=True,
+                    healthy=True,
+                    last_health_at=datetime.utcnow(),
+                )
+            )
+        append_deploy_log(db, deploy, "deploy", "Candidate is healthy. Nginx will switch traffic to the new version.")
+        db.commit()
 
 
 def _write_nginx_config(db: Session, deploy: Deploy, project: Project) -> None:
@@ -391,5 +427,42 @@ def run_deploy_task(deploy_id: int) -> None:
                 project.status = "error"
             db.commit()
             append_deploy_log(db, deploy, "error", str(exc))
+            if project is not None:
+                availability = get_or_create_availability(db, project)
+                if availability.auto_rollback_enabled and deploy.deploy_type not in {"rollback", "automatic_rollback"}:
+                    stable = (
+                        db.query(Deploy)
+                        .filter(
+                            Deploy.project_id == project.id,
+                            Deploy.status == "success",
+                            Deploy.commit_sha.isnot(None),
+                            Deploy.id != deploy.id,
+                        )
+                        .order_by(Deploy.finished_at.desc())
+                        .first()
+                    )
+                    if stable is not None and stable.commit_sha:
+                        rollback = Deploy(
+                            project_id=project.id,
+                            branch=stable.branch,
+                            commit_sha=stable.commit_sha,
+                            commit_author=stable.commit_author,
+                            commit_message=f"Automatic rollback after failed deploy #{deploy.id}",
+                            dry_run=deploy.dry_run,
+                            status="queued",
+                            deploy_type="automatic_rollback",
+                        )
+                        db.add(rollback)
+                        db.flush()
+                        db.add(LogEntry(project_id=project.id, deploy_id=rollback.id, type="deploy", message=f"Automatic rollback queued to deploy #{stable.id}"))
+                        create_alert(
+                            db,
+                            "deploy_auto_rollback",
+                            f"Rollback automatico iniciado para {project.name} apos falha no deploy #{deploy.id}.",
+                            project_id=project.id,
+                            severity="critical",
+                        )
+                        db.commit()
+                        run_deploy_task(rollback.id)
     finally:
         db.close()

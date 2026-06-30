@@ -144,6 +144,87 @@ export type AuditLog = {
   created_at: string;
 };
 
+export type AvailabilitySettings = {
+  id: number;
+  project_id: number;
+  health_check_path: string;
+  health_check_url: string | null;
+  high_availability_enabled: boolean;
+  auto_restart_enabled: boolean;
+  auto_rollback_enabled: boolean;
+  blue_green_enabled: boolean;
+  static_fallback_enabled: boolean;
+  cdn_fallback_enabled: boolean;
+  fallback_title: string;
+  fallback_message: string;
+  max_restart_attempts: number;
+  restart_attempts: number;
+  last_restart_at: string | null;
+  degraded_reason: string | null;
+  backup_enabled: boolean;
+  last_backup_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HealthCheck = {
+  id: number;
+  project_id: number;
+  status: string;
+  http_status: number | null;
+  response_time_ms: number | null;
+  error: string | null;
+  checked_at: string;
+};
+
+export type ServerNode = {
+  id: number;
+  name: string;
+  role: string;
+  base_url: string | null;
+  status: string;
+  cpu_capacity: string | null;
+  ram_capacity: string | null;
+  last_seen_at: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type Alert = {
+  id: number;
+  project_id: number | null;
+  severity: string;
+  event_type: string;
+  message: string;
+  acknowledged: boolean;
+  created_at: string;
+};
+
+export type BackupRecord = {
+  id: number;
+  project_id: number | null;
+  backup_type: string;
+  status: string;
+  path: string | null;
+  size_bytes: number | null;
+  error: string | null;
+  created_at: string;
+};
+
+export type AvailabilitySummary = {
+  settings: AvailabilitySettings;
+  last_check: HealthCheck | null;
+  uptime_24h: number;
+  uptime_7d: number;
+  average_response_ms: number | null;
+  recent_checks: HealthCheck[];
+  recent_alerts: Alert[];
+  nodes: ServerNode[];
+  backups: BackupRecord[];
+  stable_deploy: Deploy | null;
+  ha_warning: string | null;
+};
+
 export function getToken() {
   return localStorage.getItem("apex_host_token");
 }

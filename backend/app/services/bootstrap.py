@@ -4,7 +4,7 @@ from app.core.config import get_settings
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import engine
-from app.models import User
+from app.models import ServerNode, User
 
 
 def create_tables() -> None:
@@ -35,3 +35,19 @@ def ensure_admin_user(db: Session) -> User:
     db.commit()
     db.refresh(admin)
     return admin
+
+
+def ensure_default_node(db: Session) -> ServerNode:
+    node = db.query(ServerNode).filter(ServerNode.name == "primary-vps").first()
+    if node:
+        return node
+    node = ServerNode(
+        name="primary-vps",
+        role="primary",
+        status="online",
+        metadata_json={"managed_by": "apex-host", "notes": "Default local node"},
+    )
+    db.add(node)
+    db.commit()
+    db.refresh(node)
+    return node

@@ -12,6 +12,7 @@ import { Monitoring } from "./pages/Monitoring";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { Projects } from "./pages/Projects";
 import { Settings } from "./pages/Settings";
+import { Availability } from "./pages/Availability";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="projects/:projectId/domains" element={<Domains />} />
         <Route path="projects/:projectId/env" element={<EnvVars />} />
         <Route path="projects/:projectId/monitoring" element={<Monitoring />} />
+        <Route path="projects/:projectId/availability" element={<Availability />} />
         <Route path="deploys" element={<Deploys />} />
         <Route path="logs" element={<Logs />} />
         <Route path="domains" element={<Domains />} />

@@ -16,6 +16,22 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=255)
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
+    account_type: str = Field(default="client", pattern=r"^(admin|dev|client)$")
+    admin_signup_code: str | None = Field(default=None, max_length=120)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, value: str, info) -> str:
+        if info.data.get("password") and value != info.data["password"]:
+            raise ValueError("Passwords do not match")
+        return value
+
+
 class UserRead(BaseModel):
     id: int
     email: str
@@ -310,3 +326,118 @@ class AuditLogRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AvailabilitySettingsRead(BaseModel):
+    id: int
+    project_id: int
+    health_check_path: str
+    health_check_url: str | None
+    high_availability_enabled: bool
+    auto_restart_enabled: bool
+    auto_rollback_enabled: bool
+    blue_green_enabled: bool
+    static_fallback_enabled: bool
+    cdn_fallback_enabled: bool
+    fallback_title: str
+    fallback_message: str
+    max_restart_attempts: int
+    restart_attempts: int
+    last_restart_at: datetime | None
+    degraded_reason: str | None
+    backup_enabled: bool
+    last_backup_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AvailabilitySettingsUpdate(BaseModel):
+    health_check_path: str | None = Field(default=None, max_length=255)
+    health_check_url: str | None = Field(default=None, max_length=500)
+    high_availability_enabled: bool | None = None
+    auto_restart_enabled: bool | None = None
+    auto_rollback_enabled: bool | None = None
+    blue_green_enabled: bool | None = None
+    static_fallback_enabled: bool | None = None
+    cdn_fallback_enabled: bool | None = None
+    fallback_title: str | None = Field(default=None, max_length=255)
+    fallback_message: str | None = None
+    max_restart_attempts: int | None = Field(default=None, ge=0, le=10)
+    backup_enabled: bool | None = None
+
+
+class HealthCheckRead(BaseModel):
+    id: int
+    project_id: int
+    status: str
+    http_status: int | None
+    response_time_ms: int | None
+    error: str | None
+    checked_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ServerNodeRead(BaseModel):
+    id: int
+    name: str
+    role: str
+    base_url: str | None
+    status: str
+    cpu_capacity: str | None
+    ram_capacity: str | None
+    last_seen_at: datetime | None
+    metadata_json: dict[str, Any]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ServerNodeCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    role: str = Field(default="secondary", pattern=r"^(primary|secondary|edge)$")
+    base_url: str | None = Field(default=None, max_length=500)
+    status: str = Field(default="online", pattern=r"^(online|offline|degraded)$")
+    cpu_capacity: str | None = Field(default=None, max_length=80)
+    ram_capacity: str | None = Field(default=None, max_length=80)
+
+
+class AlertRead(BaseModel):
+    id: int
+    project_id: int | None
+    severity: str
+    event_type: str
+    message: str
+    acknowledged: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BackupRecordRead(BaseModel):
+    id: int
+    project_id: int | None
+    backup_type: str
+    status: str
+    path: str | None
+    size_bytes: int | None
+    error: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AvailabilitySummaryRead(BaseModel):
+    settings: AvailabilitySettingsRead
+    last_check: HealthCheckRead | None
+    uptime_24h: float
+    uptime_7d: float
+    average_response_ms: float | None
+    recent_checks: list[HealthCheckRead]
+    recent_alerts: list[AlertRead]
+    nodes: list[ServerNodeRead]
+    backups: list[BackupRecordRead]
+    stable_deploy: DeployRead | None
+    ha_warning: str | None

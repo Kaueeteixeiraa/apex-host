@@ -227,3 +227,101 @@ class AuditLog(Base):
 
     user: Mapped[User | None] = relationship(back_populates="audit_logs")
     project: Mapped[Project | None] = relationship(back_populates="audit_logs")
+
+
+class ProjectAvailabilitySetting(Base):
+    __tablename__ = "project_availability_settings"
+    __table_args__ = (UniqueConstraint("project_id", name="uq_availability_project"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    health_check_path: Mapped[str] = mapped_column(String(255), default="/", nullable=False)
+    health_check_url: Mapped[str | None] = mapped_column(String(500))
+    high_availability_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_restart_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    auto_rollback_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    blue_green_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    static_fallback_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cdn_fallback_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    fallback_title: Mapped[str] = mapped_column(String(255), default="Site temporariamente instavel", nullable=False)
+    fallback_message: Mapped[str] = mapped_column(
+        Text,
+        default="Estamos restaurando este projeto automaticamente pelo Apex Host.",
+        nullable=False,
+    )
+    max_restart_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    restart_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_restart_at: Mapped[datetime | None] = mapped_column(DateTime)
+    degraded_reason: Mapped[str | None] = mapped_column(Text)
+    backup_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_backup_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class HealthCheck(Base):
+    __tablename__ = "health_checks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="unknown", nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    response_time_ms: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class ServerNode(Base):
+    __tablename__ = "server_nodes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(80), default="primary", nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(50), default="online", nullable=False)
+    cpu_capacity: Mapped[str | None] = mapped_column(String(80))
+    ram_capacity: Mapped[str | None] = mapped_column(String(80))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class ProjectNodeDeployment(Base):
+    __tablename__ = "project_node_deployments"
+    __table_args__ = (UniqueConstraint("project_id", "node_id", "deploy_id", name="uq_project_node_deploy"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    node_id: Mapped[int] = mapped_column(ForeignKey("server_nodes.id"), nullable=False)
+    deploy_id: Mapped[int | None] = mapped_column(ForeignKey("deploys.id"))
+    version: Mapped[str | None] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(50), default="prepared", nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    healthy: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    last_health_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class BackupRecord(Base):
+    __tablename__ = "backup_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    backup_type: Mapped[str] = mapped_column(String(80), default="manual", nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="success", nullable=False)
+    path: Mapped[str | None] = mapped_column(String(500))
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    severity: Mapped[str] = mapped_column(String(50), default="warning", nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

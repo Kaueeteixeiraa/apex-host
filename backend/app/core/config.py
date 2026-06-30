@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     github_oauth_client_id: str | None = None
     github_oauth_client_secret: str | None = None
     github_oauth_redirect_url: str = "http://localhost:8000/api/github/oauth/callback"
+    admin_signup_code: str | None = None
+    public_registration_enabled: bool = True
+    health_monitor_enabled: bool = True
+    health_check_interval_seconds: int = 60
+    default_health_check_timeout_seconds: int = 5
     auto_create_tables: bool = True
     allowed_command_prefixes: str = "npm,pnpm,yarn,node,python,pip,uvicorn,gunicorn"
 

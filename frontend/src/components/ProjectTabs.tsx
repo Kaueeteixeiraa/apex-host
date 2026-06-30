@@ -6,7 +6,8 @@ const tabs = [
   { to: "logs", label: "Logs" },
   { to: "domains", label: "Dominios" },
   { to: "env", label: "Variaveis" },
-  { to: "monitoring", label: "Monitoramento" }
+  { to: "monitoring", label: "Monitoramento" },
+  { to: "availability", label: "Disponibilidade" }
 ];
 
 export function ProjectTabs({ projectId }: { projectId: number }) {

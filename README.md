@@ -15,6 +15,8 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies, inspirada
 - Deploy dry run por padrao, cancelamento, historico, logs, rollback preparado e modo Docker real por flags.
 - Monitoramento basico do servidor e stats por container quando Docker estiver disponivel.
 - Estrutura preparada para Admin, Dev e Viewer com permissoes por projeto.
+- Tela inicial premium com login e cadastro sem reload, validacao visual, loading animado e protecao contra admin livre.
+- Disponibilidade por projeto: health checks, auto-restart, alertas, backups, nodes, fallback/CDN e modo alta disponibilidade.
 
 ## Rodando localmente
 
@@ -96,7 +98,32 @@ GITHUB_OAUTH_CLIENT_ID=
 GITHUB_OAUTH_CLIENT_SECRET=
 GITHUB_OAUTH_REDIRECT_URL=http://localhost:8000/api/github/oauth/callback
 GITHUB_WEBHOOK_SECRET=
+ADMIN_SIGNUP_CODE=
+PUBLIC_REGISTRATION_ENABLED=true
+HEALTH_MONITOR_ENABLED=true
+HEALTH_CHECK_INTERVAL_SECONDS=60
+DEFAULT_HEALTH_CHECK_TIMEOUT_SECONDS=5
 ```
+
+## Autenticacao e cadastro
+
+A tela `/login` combina login e cadastro no mesmo fluxo, sem recarregar a pagina.
+
+Cadastro inclui:
+
+- Nome, e-mail, senha e confirmacao.
+- Tipo de conta: Cliente, Dev ou Admin.
+- Validacao visual e feedback moderno.
+- Login automatico apos cadastro.
+
+Seguranca do cadastro:
+
+- `PUBLIC_REGISTRATION_ENABLED=false` desativa cadastro publico.
+- Usuario que pede Admin so recebe Admin se informar `ADMIN_SIGNUP_CODE`.
+- Sem codigo valido, a conta e criada como Cliente com `plan=pending_admin_review`.
+- A trilha de auditoria registra papel solicitado e papel concedido.
+
+O botao "Entrar com GitHub OAuth" esta preparado visualmente. O OAuth GitHub existente hoje conecta repositorios apos login; para usar GitHub como provedor de login ainda falta implementar fluxo publico de identidade.
 
 ## Dry Run vs Producao
 
@@ -140,6 +167,76 @@ POST /api/github/webhook
 ```
 
 O webhook valida `X-Hub-Signature-256` quando `GITHUB_WEBHOOK_SECRET` estiver configurado, registra o evento, encontra projetos por `github_repo_full_name` e enfileira deploy automatico quando a branch bate.
+
+## Como evitar que sites caiam no Apex Host
+
+Um unico servidor desligado derruba todos os sites dinamicos que dependem dele. O Apex Host agora diferencia recuperacao local de alta disponibilidade real:
+
+- Recuperacao local: health checks, auto-restart, rollback automatico e fallback visual reduzem queda por container travado, deploy ruim ou erro de runtime.
+- Alta disponibilidade real: exige pelo menos dois servidores/nodes, balanceador saudavel ou CDN externa para continuar servindo quando a VPS principal cai.
+- Sites estaticos: podem usar fallback estatico/CDN para continuar respondendo conteudo cacheado mesmo com origem indisponivel.
+
+### Health checks
+
+Cada projeto tem uma aba `Disponibilidade` com:
+
+- Status atual.
+- Ultimo HTTP status.
+- Tempo de resposta.
+- Uptime 24h e 7 dias.
+- Historico visual de checks.
+- Health check URL/path configuravel.
+
+O monitor automatico roda quando `HEALTH_MONITOR_ENABLED=true` e usa `HEALTH_CHECK_INTERVAL_SECONDS`.
+
+### Auto-restart
+
+Quando um health check falha:
+
+1. O projeto e marcado como offline.
+2. O Apex Host registra alerta e log.
+3. Se `auto_restart_enabled=true`, tenta reiniciar o container.
+4. Se atingir `max_restart_attempts`, marca o projeto como degradado para evitar loop infinito.
+
+### Blue/green deploy
+
+Com Docker real e `blue_green_enabled=true`, o deploy tenta subir uma versao candidata em outra porta, roda health check nela e so depois aponta o projeto para a porta nova. Se a candidata falhar, a versao anterior continua intacta.
+
+### Rollback automatico
+
+Se um deploy comum falhar e existir deploy estavel anterior com commit registrado, o Apex Host cria um deploy `automatic_rollback` para voltar ao ultimo commit estavel. O botao manual de rollback tambem fica disponivel no historico de deploys.
+
+### Backups
+
+A aba `Disponibilidade` permite exportar backup manual do projeto com:
+
+- Configuracao do projeto.
+- Variaveis de ambiente ainda criptografadas.
+- Dominios.
+- Configuracoes de disponibilidade.
+
+Tambem existe exportacao global para admins em `POST /api/backups/export`.
+
+### Nodes e redundancia
+
+O sistema cria um node local `primary-vps` por padrao e possui estrutura para nodes secundarios:
+
+- Nome, papel, status, CPU/RAM e ultima comunicacao.
+- Mapeamento preparado de deploy por node.
+- Aviso visual quando HA esta ativo mas so existe um node saudavel.
+
+Para producao real, combine:
+
+- VPS primaria.
+- VPS secundaria.
+- Banco/backup restauravel.
+- Nginx/HAProxy/Traefik como balanceador.
+- Health checks no balanceador.
+- CDN para assets e projetos estaticos.
+
+### Pagina fallback
+
+Existe uma pagina fallback premium em `frontend/public/fallback.html`. Ela pode ser usada pelo Nginx como resposta temporaria quando a origem estiver indisponivel.
 
 ## Seguranca
 
@@ -222,6 +319,8 @@ npm run build
 - Rollback Docker completo para imagem/tag imutavel por deploy.
 - Upload ZIP e deploy de projetos estaticos sem Git.
 - CRUD completo de usuarios e convites.
+- Promover GitHub OAuth para provedor de login publico.
+- Orquestrador real multi-node com agente por servidor.
 - Planos, limites e cobranca futura.
 - Pagina publica de status.
 - Templates de projeto e presets por framework.

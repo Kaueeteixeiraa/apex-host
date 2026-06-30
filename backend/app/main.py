@@ -3,13 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.routes import audit, auth, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects
-from app.services.bootstrap import create_tables, ensure_admin_user
+from app.routes import audit, auth, availability, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects
+from app.services.availability import start_health_monitor
+from app.services.bootstrap import create_tables, ensure_admin_user, ensure_default_node
 
 
 settings = get_settings()
 
 app = FastAPI(title=settings.app_name)
+app.state.health_monitor_started = False
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,8 +29,12 @@ def startup() -> None:
     db = SessionLocal()
     try:
         ensure_admin_user(db)
+        ensure_default_node(db)
     finally:
         db.close()
+    if not app.state.health_monitor_started:
+        start_health_monitor()
+        app.state.health_monitor_started = True
 
 
 @app.get("/health")
@@ -46,3 +52,4 @@ app.include_router(logs.router, prefix=settings.api_prefix)
 app.include_router(monitoring.router, prefix=settings.api_prefix)
 app.include_router(github.router, prefix=settings.api_prefix)
 app.include_router(audit.router, prefix=settings.api_prefix)
+app.include_router(availability.router, prefix=settings.api_prefix)
