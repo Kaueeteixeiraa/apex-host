@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+export const API_BASE_URL = API_URL;
 
 export type User = {
   id: number;
@@ -223,6 +224,133 @@ export type AvailabilitySummary = {
   backups: BackupRecord[];
   stable_deploy: Deploy | null;
   ha_warning: string | null;
+};
+
+export type Plan = {
+  id: string;
+  name: string;
+  description: string;
+  audience: string;
+  price_label: string;
+  limits: Record<string, unknown>;
+  features: string[];
+  highlighted: boolean;
+};
+
+export type ProjectTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  stack: string;
+  install_command: string | null;
+  build_command: string | null;
+  start_command: string | null;
+  output_directory: string | null;
+  internal_port: number;
+  project_type: string;
+  icon: string;
+  preview: string;
+  tags: string[];
+};
+
+export type FrameworkDetection = {
+  framework: string;
+  project_type: string;
+  build_command: string | null;
+  start_command: string | null;
+  install_command: string | null;
+  output_directory: string | null;
+  default_port: number;
+  runtime: string;
+  confidence: number;
+  reasons: string[];
+};
+
+export type LogAnalysis = {
+  summary: string;
+  possible_cause: string;
+  suggested_fix: string;
+  severity: string;
+  important_lines: string[];
+  signals: string[];
+  provider: string;
+};
+
+export type PlatformSettings = {
+  id: number;
+  platform_name: string;
+  logo_url: string | null;
+  primary_color: string;
+  primary_domain: string | null;
+  maintenance_mode: boolean;
+  allow_registration: boolean;
+  require_account_approval: boolean;
+  default_user_plan: string;
+  default_user_limits: Record<string, unknown>;
+  smtp_config: Record<string, unknown>;
+  alert_config: Record<string, unknown>;
+  backup_config: Record<string, unknown>;
+  cdn_config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserSession = {
+  id: number;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+};
+
+export type AdminOverview = {
+  stats: Record<string, number>;
+  users: User[];
+  projects: Project[];
+  deploys: Deploy[];
+  alerts: Alert[];
+  audit_logs: AuditLog[];
+  nodes: ServerNode[];
+  recent_errors: LogEntry[];
+};
+
+export type SupportMessage = {
+  id: number;
+  ticket_id: number;
+  user_id: number;
+  body: string;
+  is_admin_reply: boolean;
+  created_at: string;
+};
+
+export type SupportTicket = {
+  id: number;
+  user_id: number;
+  project_id: number | null;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  messages: SupportMessage[];
+};
+
+export type PublicComponentStatus = {
+  name: string;
+  status: string;
+  detail: string;
+};
+
+export type PublicStatus = {
+  overall_status: string;
+  uptime_24h: number;
+  uptime_7d: number;
+  components: PublicComponentStatus[];
+  incidents: Alert[];
+  recent_checks: HealthCheck[];
+  platform: Record<string, unknown>;
 };
 
 export function getToken() {

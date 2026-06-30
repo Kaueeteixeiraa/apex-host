@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,6 +11,7 @@ from app.schemas import (
     AvailabilitySettingsUpdate,
     AvailabilitySummaryRead,
     BackupRecordRead,
+    ConfirmAction,
     HealthCheckRead,
     ServerNodeCreate,
     ServerNodeRead,
@@ -165,3 +167,48 @@ def export_system(
     db.commit()
     db.refresh(record)
     return record
+
+
+@router.get("/backups/{backup_id}/download")
+def download_backup(
+    backup_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    record = db.get(BackupRecord, backup_id)
+    if record is None or record.path is None:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    if user.role != "admin" and record.project_id is not None:
+        require_project_permission(record.project_id, db, user, "edit")
+    return FileResponse(record.path, filename=record.path.split("\\")[-1].split("/")[-1])
+
+
+@router.post("/backups/{backup_id}/restore")
+def prepare_restore_backup(
+    backup_id: int,
+    payload: ConfirmAction,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str | bool]:
+    record = db.get(BackupRecord, backup_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    if user.role != "admin" and record.project_id is not None:
+        require_project_permission(record.project_id, db, user, "edit")
+    if payload.confirmation != "RESTAURAR":
+        raise HTTPException(status_code=400, detail="Type RESTAURAR to confirm restore preparation")
+    record_audit(
+        db,
+        "backup.restore_prepared",
+        user=user,
+        project_id=record.project_id,
+        target_type="backup",
+        target_id=record.id,
+        details={"path": record.path, "destructive_restore_enabled": False},
+    )
+    db.commit()
+    return {
+        "ok": True,
+        "status": "prepared",
+        "message": "Restore validado e auditado. A aplicacao ainda nao executa restore destrutivo automaticamente.",
+    }

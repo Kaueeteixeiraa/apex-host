@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { AlertTriangle, DatabaseBackup, type LucideIcon, RefreshCcw, Server, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Alert, api, AvailabilitySummary, BackupRecord, formatDate, HealthCheck } from "../lib/api";
+import { Alert, api, API_BASE_URL, AvailabilitySummary, BackupRecord, formatDate, getToken, HealthCheck } from "../lib/api";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
 import { ProjectTabs } from "../components/ProjectTabs";
@@ -37,6 +37,27 @@ export function Availability() {
     const backup = await api<BackupRecord>(`/projects/${projectId}/backups/export`, { method: "POST" });
     setMessage(`Backup exportado: ${backup.path}`);
     await load();
+  };
+
+  const downloadBackup = async (backup: BackupRecord) => {
+    const response = await fetch(`${API_BASE_URL}/backups/${backup.id}/download`, {
+      headers: { Authorization: `Bearer ${getToken() || ""}` }
+    });
+    if (!response.ok) throw new Error("Erro ao baixar backup");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = backup.path?.split(/[\\/]/).pop() || `apex-backup-${backup.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const restoreBackup = async (backup: BackupRecord) => {
+    const confirmation = prompt("Digite RESTAURAR para preparar a restauracao deste backup.");
+    if (confirmation !== "RESTAURAR") return;
+    await api(`/backups/${backup.id}/restore`, { method: "POST", body: JSON.stringify({ confirmation }) });
+    setMessage("Restore preparado e registrado em auditoria. Execucao destrutiva segue desativada por seguranca.");
   };
 
   const save = async (event: FormEvent) => {
@@ -213,9 +234,20 @@ export function Availability() {
         <Panel title="Backups" icon={DatabaseBackup}>
           {data.backups.map((backup) => (
             <div key={backup.id} className="rounded-md border border-apex-line bg-black/20 p-3">
-              <div className="text-sm font-medium text-white">{backup.backup_type}</div>
-              <p className="mt-1 truncate text-xs text-apex-muted">{backup.path || backup.status}</p>
-              <p className="mt-2 text-xs text-apex-muted">{formatDate(backup.created_at)}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-white">{backup.backup_type}</div>
+                  <p className="mt-1 truncate text-xs text-apex-muted">{backup.path || backup.status}</p>
+                  <p className="mt-2 text-xs text-apex-muted">
+                    {formatDate(backup.created_at)} - {backup.size_bytes ? `${Math.round(backup.size_bytes / 1024)} KB` : "tamanho n/a"}
+                  </p>
+                </div>
+                <StatusBadge status={backup.status} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="btn-secondary" onClick={() => void downloadBackup(backup)}>Baixar</button>
+                <button className="btn-danger" onClick={() => void restoreBackup(backup)}>Restaurar</button>
+              </div>
             </div>
           ))}
           {data.backups.length === 0 ? <p className="muted">Nenhum backup registrado.</p> : null}

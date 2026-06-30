@@ -31,6 +31,17 @@ class RegisterRequest(BaseModel):
             raise ValueError("Passwords do not match")
         return value
 
+    @field_validator("password")
+    @classmethod
+    def strong_password(cls, value: str) -> str:
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must include a lowercase letter")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must include an uppercase letter")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must include a number")
+        return value
+
 
 class UserRead(BaseModel):
     id: int
@@ -441,3 +452,199 @@ class AvailabilitySummaryRead(BaseModel):
     backups: list[BackupRecordRead]
     stable_deploy: DeployRead | None
     ha_warning: str | None
+
+
+class ConfirmAction(BaseModel):
+    confirmation: str = Field(min_length=2, max_length=255)
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = Field(default=None, pattern=r"^(admin|dev|client)$")
+    plan: str | None = Field(default=None, max_length=80)
+    is_active: bool | None = None
+    limits: dict[str, Any] | None = None
+
+
+class AdminOverviewRead(BaseModel):
+    stats: dict[str, Any]
+    users: list[UserRead]
+    projects: list[ProjectRead]
+    deploys: list[DeployRead]
+    alerts: list[AlertRead]
+    audit_logs: list[AuditLogRead]
+    nodes: list[ServerNodeRead]
+    recent_errors: list[LogRead]
+
+
+class PlanRead(BaseModel):
+    id: str
+    name: str
+    description: str
+    audience: str
+    price_label: str
+    limits: dict[str, Any]
+    features: list[str]
+    highlighted: bool = False
+
+
+class ProjectTemplateRead(BaseModel):
+    id: str
+    name: str
+    description: str
+    stack: str
+    install_command: str | None
+    build_command: str | None
+    start_command: str | None
+    output_directory: str | None
+    internal_port: int
+    project_type: str
+    icon: str
+    preview: str
+    tags: list[str]
+
+
+class FrameworkDetectionRequest(BaseModel):
+    files: list[str] = Field(default_factory=list)
+    package_json: dict[str, Any] | None = None
+
+
+class FrameworkDetectionRead(BaseModel):
+    framework: str
+    project_type: str
+    build_command: str | None
+    start_command: str | None
+    install_command: str | None
+    output_directory: str | None
+    default_port: int
+    runtime: str
+    confidence: float
+    reasons: list[str]
+
+
+class LogAnalysisRequest(BaseModel):
+    deploy_id: int | None = None
+    limit: int = Field(default=200, ge=1, le=1000)
+
+
+class LogAnalysisRead(BaseModel):
+    summary: str
+    possible_cause: str
+    suggested_fix: str
+    severity: str
+    important_lines: list[str]
+    signals: list[str]
+    provider: str = "apex-local-heuristics"
+
+
+class PlatformSettingsRead(BaseModel):
+    id: int
+    platform_name: str
+    logo_url: str | None
+    primary_color: str
+    primary_domain: str | None
+    maintenance_mode: bool
+    allow_registration: bool
+    require_account_approval: bool
+    default_user_plan: str
+    default_user_limits: dict[str, Any]
+    smtp_config: dict[str, Any]
+    alert_config: dict[str, Any]
+    backup_config: dict[str, Any]
+    cdn_config: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PlatformSettingsUpdate(BaseModel):
+    platform_name: str | None = Field(default=None, min_length=2, max_length=255)
+    logo_url: str | None = Field(default=None, max_length=500)
+    primary_color: str | None = Field(default=None, max_length=40)
+    primary_domain: str | None = Field(default=None, max_length=255)
+    maintenance_mode: bool | None = None
+    allow_registration: bool | None = None
+    require_account_approval: bool | None = None
+    default_user_plan: str | None = Field(default=None, max_length=80)
+    default_user_limits: dict[str, Any] | None = None
+    smtp_config: dict[str, Any] | None = None
+    alert_config: dict[str, Any] | None = None
+    backup_config: dict[str, Any] | None = None
+    cdn_config: dict[str, Any] | None = None
+
+
+class UserSessionRead(BaseModel):
+    id: int
+    ip_address: str | None
+    user_agent: str | None
+    created_at: datetime
+    last_seen_at: datetime | None
+    revoked_at: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TwoFactorSetupRead(BaseModel):
+    enabled: bool
+    status: str
+    manual_secret: str
+    message: str
+
+
+class SupportTicketCreate(BaseModel):
+    subject: str = Field(min_length=4, max_length=255)
+    body: str = Field(min_length=4)
+    category: str = Field(default="other", pattern=r"^(deploy|domain|account|billing|bug|other)$")
+    priority: str = Field(default="medium", pattern=r"^(low|medium|high)$")
+    project_id: int | None = None
+
+
+class SupportTicketUpdate(BaseModel):
+    status: str | None = Field(default=None, pattern=r"^(open|reviewing|resolved)$")
+    priority: str | None = Field(default=None, pattern=r"^(low|medium|high)$")
+
+
+class SupportMessageCreate(BaseModel):
+    body: str = Field(min_length=4)
+
+
+class SupportMessageRead(BaseModel):
+    id: int
+    ticket_id: int
+    user_id: int
+    body: str
+    is_admin_reply: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupportTicketRead(BaseModel):
+    id: int
+    user_id: int
+    project_id: int | None
+    subject: str
+    category: str
+    priority: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[SupportMessageRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PublicComponentStatus(BaseModel):
+    name: str
+    status: str
+    detail: str
+
+
+class PublicStatusRead(BaseModel):
+    overall_status: str
+    uptime_24h: float
+    uptime_7d: float
+    components: list[PublicComponentStatus]
+    incidents: list[AlertRead]
+    recent_checks: list[HealthCheckRead]
+    platform: dict[str, Any]

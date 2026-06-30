@@ -34,10 +34,10 @@ export function Login() {
   const passwordScore = useMemo(() => {
     let score = 0;
     if (password.length >= 8) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
     if (/[A-Z]/.test(password)) score += 1;
     if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
-    return score;
+    return Math.min(score, 4);
   }, [password]);
 
   if (user && !loading) return <Navigate to="/" replace />;
@@ -69,6 +69,7 @@ export function Login() {
         setSuccess("Login aprovado. Abrindo painel...");
       } else {
         if (password !== confirmPassword) throw new Error("As senhas nao conferem.");
+        if (passwordScore < 4) throw new Error("Use senha com 8 caracteres, letra minuscula, letra maiuscula e numero.");
         await register({
           full_name: fullName,
           email,

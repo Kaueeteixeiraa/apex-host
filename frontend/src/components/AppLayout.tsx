@@ -1,31 +1,71 @@
 import {
   Activity,
   Boxes,
+  CreditCard,
   Gauge,
   Globe2,
+  LifeBuoy,
+  BookOpen,
   LayoutDashboard,
   LogOut,
+  RadioTower,
   ScrollText,
   Settings,
+  Shield,
   TerminalSquare
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import { ApexLogo } from "./ApexLogo";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/projects", label: "Projetos", icon: Boxes },
+  { to: "/plans", label: "Planos", icon: CreditCard },
   { to: "/domains", label: "Dominios", icon: Globe2 },
   { to: "/deploys", label: "Deploys", icon: TerminalSquare },
   { to: "/logs", label: "Logs", icon: ScrollText },
   { to: "/monitoring", label: "Monitoramento", icon: Activity },
-  { to: "/settings", label: "Configuracoes", icon: Settings }
+  { to: "/support", label: "Suporte", icon: LifeBuoy },
+  { to: "/help", label: "Ajuda", icon: BookOpen },
+  { to: "/status", label: "Status", icon: RadioTower },
+  { to: "/settings", label: "Configuracoes", icon: Settings },
+  { to: "/admin", label: "Admin", icon: Shield, adminOnly: true }
 ];
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const [maintenance, setMaintenance] = useState(false);
+
+  useEffect(() => {
+    void api<{ maintenance_mode: boolean }>("/public/platform")
+      .then((data) => setMaintenance(Boolean(data.maintenance_mode)))
+      .catch(() => setMaintenance(false));
+  }, []);
+
+  const visibleNav = nav.filter((item) => !item.adminOnly || user?.role === "admin");
+
+  if (maintenance && user?.role !== "admin") {
+    return (
+      <div className="apex-grid grid min-h-screen place-items-center bg-apex-bg px-4">
+        <div className="panel max-w-xl p-8 text-center">
+          <ApexLogo className="mx-auto mb-5 h-16 w-16" />
+          <div className="section-title mb-2">Modo manutencao</div>
+          <h1 className="text-3xl font-semibold text-white">Apex Host esta em manutencao programada</h1>
+          <p className="muted mt-3">
+            O painel esta temporariamente pausado para usuarios comuns. Projetos hospedados continuam independentes dessa tela.
+          </p>
+          <button className="btn-secondary mt-6" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="apex-grid min-h-screen bg-apex-bg">
@@ -39,7 +79,7 @@ export function AppLayout() {
         </div>
 
         <nav className="space-y-1">
-          {nav.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -82,7 +122,7 @@ export function AppLayout() {
             </div>
           </div>
           <nav className="flex gap-2 overflow-x-auto border-t border-apex-line px-4 py-2 lg:hidden">
-            {nav.map((item) => {
+            {visibleNav.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink

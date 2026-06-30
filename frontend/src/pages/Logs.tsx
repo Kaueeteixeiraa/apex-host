@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Search, RefreshCcw, ScrollText, Trash2 } from "lucide-react";
+import { Search, RefreshCcw, ScrollText, Sparkles, Trash2 } from "lucide-react";
 
-import { api, formatDate, LogEntry } from "../lib/api";
+import { api, formatDate, LogAnalysis, LogEntry } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { ProjectSelector } from "../components/ProjectSelector";
 import { ProjectTabs } from "../components/ProjectTabs";
@@ -15,6 +15,7 @@ export function Logs() {
   const [type, setType] = useState("");
   const [query, setQuery] = useState("");
   const [autoPoll, setAutoPoll] = useState(true);
+  const [analysis, setAnalysis] = useState<LogAnalysis | null>(null);
 
   const loadLogs = async () => {
     if (!selectedId) return;
@@ -35,6 +36,11 @@ export function Logs() {
     return logs.filter((log) => `${log.type} ${log.message} ${log.created_at}`.toLowerCase().includes(search));
   }, [logs, query]);
 
+  const analyze = async () => {
+    if (!selectedId) return;
+    setAnalysis(await api<LogAnalysis>(`/projects/${selectedId}/logs/analyze`, { method: "POST", body: JSON.stringify({ limit: 300 }) }));
+  };
+
   if (error) return <div className="panel p-5 text-red-200">{error}</div>;
 
   return (
@@ -47,7 +53,7 @@ export function Logs() {
       />
       {selectedProject ? <ProjectTabs projectId={selectedProject.id} /> : null}
       {loading ? <div className="panel p-5 text-apex-muted">Carregando projetos...</div> : null}
-      <div className="panel grid gap-4 p-4 lg:grid-cols-[1fr_180px_1fr_auto_auto] lg:items-end">
+      <div className="panel grid gap-4 p-4 lg:grid-cols-[1fr_160px_1fr_auto_auto_auto] lg:items-end">
         <ProjectSelector projects={projects} selectedId={selectedId} onChange={setSelectedId} />
         <label className="block">
           <span className="label">Tipo</span>
@@ -75,11 +81,31 @@ export function Logs() {
           <RefreshCcw className="h-4 w-4" />
           Atualizar
         </button>
-        <button className="btn-secondary lg:col-start-5" onClick={() => setLogs([])}>
+        <button className="btn-primary" onClick={() => void analyze()}>
+          <Sparkles className="h-4 w-4" />
+          Analisar erro
+        </button>
+        <button className="btn-secondary" onClick={() => setLogs([])}>
           <Trash2 className="h-4 w-4" />
           Limpar tela
         </button>
       </div>
+      {analysis ? (
+        <div className="panel grid gap-4 p-4 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <div className="section-title mb-2">Analise inteligente</div>
+            <h2 className="font-semibold text-white">{analysis.possible_cause}</h2>
+            <p className="muted mt-2">{analysis.summary}</p>
+            <div className="mt-3 rounded-md border border-apex-cyan/30 bg-apex-cyan/10 p-3 text-sm text-apex-text">{analysis.suggested_fix}</div>
+          </div>
+          <div>
+            <div className="section-title mb-2">Linhas importantes</div>
+            <div className="terminal max-h-48 overflow-auto p-3">
+              {analysis.important_lines.length > 0 ? analysis.important_lines.map((line, index) => <div key={`${line}-${index}`}>{line}</div>) : "Nenhuma linha critica detectada."}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="terminal max-h-[680px] overflow-auto p-0">
         {filteredLogs.map((log) => (
           <div key={log.id} className="border-b border-apex-line/70 p-4">

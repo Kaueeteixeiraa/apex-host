@@ -27,6 +27,10 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def _fernet() -> Fernet:
     settings = get_settings()
     digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()

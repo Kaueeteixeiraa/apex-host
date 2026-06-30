@@ -5,6 +5,7 @@ from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import engine
 from app.models import ServerNode, User
+from app.services.platform import get_or_create_platform_settings
 
 
 def create_tables() -> None:
@@ -51,3 +52,7 @@ def ensure_default_node(db: Session) -> ServerNode:
     db.commit()
     db.refresh(node)
     return node
+
+
+def ensure_platform_settings(db: Session) -> None:
+    get_or_create_platform_settings(db)

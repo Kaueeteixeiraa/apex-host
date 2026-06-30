@@ -17,6 +17,11 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies, inspirada
 - Estrutura preparada para Admin, Dev e Viewer com permissoes por projeto.
 - Tela inicial premium com login e cadastro sem reload, validacao visual, loading animado e protecao contra admin livre.
 - Disponibilidade por projeto: health checks, auto-restart, alertas, backups, nodes, fallback/CDN e modo alta disponibilidade.
+- Painel Admin com usuarios, projetos, nodes, alertas, auditoria, limites e configuracoes globais.
+- Planos internos Free, Pro, Business e Interno Apex, com limites preparados para cobranca futura.
+- Templates de projeto, deteccao automatica de framework e status publico em `/status`.
+- Central de suporte com tickets, respostas, categorias, prioridades e base de ajuda.
+- Analise local de logs/deploys preparada para futura integracao com IA.
 
 ## Rodando localmente
 
@@ -74,6 +79,22 @@ Servicos previstos:
 - `worker`: executor de deploys RQ.
 - `frontend`: painel React.
 
+## Teste real em producao/VPS
+
+O checklist completo esta em [`docs/production-checklist.md`](docs/production-checklist.md).
+
+Resumo do teste real:
+
+- Configurar dominio principal, DNS, Nginx e SSL.
+- Configurar Docker, Postgres, Redis e variaveis de ambiente.
+- Configurar GitHub OAuth e webhooks com segredo.
+- Criar primeiro usuario Admin e revisar configuracoes da plataforma.
+- Criar primeiro projeto via GitHub e via template.
+- Fazer primeiro deploy dry run e depois deploy real.
+- Configurar dominio customizado e gerar SSL.
+- Testar health check, auto-restart, rollback, backup, download de backup e fallback.
+- Testar pagina publica `/status`, tickets de suporte, auditoria, bloqueio de usuario e modo manutencao.
+
 ## Variaveis importantes
 
 ```env
@@ -119,9 +140,27 @@ Cadastro inclui:
 Seguranca do cadastro:
 
 - `PUBLIC_REGISTRATION_ENABLED=false` desativa cadastro publico.
+- O Admin tambem pode desativar cadastro na tela Admin por configuracao de plataforma.
 - Usuario que pede Admin so recebe Admin se informar `ADMIN_SIGNUP_CODE`.
 - Sem codigo valido, a conta e criada como Cliente com `plan=pending_admin_review`.
 - A trilha de auditoria registra papel solicitado e papel concedido.
+- A politica minima de senha exige 8 caracteres, letra maiuscula, letra minuscula e numero.
+- Logins geram sessoes com IP e user-agent; o usuario pode sair de todos os dispositivos.
+
+## Fase 4: Admin, planos, templates, status, suporte e IA preparada
+
+Implementado nesta fase:
+
+- `/admin`: painel do dono da plataforma com usuarios, projetos, nodes, alertas, auditoria e configuracoes.
+- `/plans`: comparativo visual de planos internos e limites.
+- `/support`: abertura e resposta de tickets com categoria, prioridade e status.
+- `/help`: FAQ operacional para deploy, dominio, logs, fallback, HA e rollback.
+- `/status`: status publico com componentes, incidentes, nodes e uptime.
+- Templates iniciais: HTML/CSS/JS, React + Vite, Next.js, Node/Express, Flask, FastAPI, landing simples e institucional Apex.
+- Deteccao automatica por `package.json`, `vite.config`, `next.config`, `requirements.txt`, `pyproject.toml`, `Dockerfile` e `index.html`.
+- Botao "Analisar erro" em Logs e Deploys usando heuristicas locais isoladas em servico.
+- Sessoes ativas, logout global e 2FA preparado para conexao TOTP futura.
+- Modo manutencao no painel para usuarios comuns, mantendo projetos hospedados independentes.
 
 O botao "Entrar com GitHub OAuth" esta preparado visualmente. O OAuth GitHub existente hoje conecta repositorios apos login; para usar GitHub como provedor de login ainda falta implementar fluxo publico de identidade.
 
@@ -299,6 +338,14 @@ Recomendado em producao:
 - Backup de `.env` em cofre seguro, nunca no Git.
 - Teste periodico de restauracao.
 
+Na interface, a aba `Disponibilidade` permite:
+
+- Gerar backup agora.
+- Listar backups com data, status e tamanho.
+- Baixar backup.
+- Preparar restauracao com confirmacao forte `RESTAURAR`.
+- Registrar toda acao em auditoria.
+
 ## Qualidade
 
 Validacoes usadas durante desenvolvimento:
@@ -313,14 +360,23 @@ npm run build
 
 ## Roadmap
 
-- Worker dedicado com progresso em tempo real por WebSocket/SSE.
-- Health checks HTTP por projeto com alertas visuais.
-- Metricas historicas de CPU/RAM/restarts.
-- Rollback Docker completo para imagem/tag imutavel por deploy.
-- Upload ZIP e deploy de projetos estaticos sem Git.
-- CRUD completo de usuarios e convites.
-- Promover GitHub OAuth para provedor de login publico.
-- Orquestrador real multi-node com agente por servidor.
-- Planos, limites e cobranca futura.
-- Pagina publica de status.
-- Templates de projeto e presets por framework.
+### Fase 1
+
+- MVP de hospedagem.
+- Projetos, deploys dry run e painel inicial.
+
+### Fase 2
+
+- Visual premium, deploys, logs, GitHub, Docker, SSL, envs criptografadas e auditoria.
+
+### Fase 3
+
+- Alta disponibilidade, health check, fallback, rollback, backups, nodes e recuperacao automatica.
+
+### Fase 4
+
+- Admin, planos, templates, deteccao de framework, status publico, suporte, IA preparada para logs e modo manutencao.
+
+### Fase 5
+
+- Pagamentos, marketplace, produto comercial, multi-regiao, agente real por servidor, WebSocket/SSE e orquestracao multi-node completa.

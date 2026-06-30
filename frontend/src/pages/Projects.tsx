@@ -1,8 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Boxes, Github, Globe2, KeyRound, Plus, Rocket, Settings2, Trash2 } from "lucide-react";
+import { Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, SearchCheck, Settings2, Trash2 } from "lucide-react";
 
-import { api, Deploy, Domain, EnvVar, GitHubRepo, Project } from "../lib/api";
+import { api, Deploy, Domain, EnvVar, FrameworkDetection, GitHubRepo, Project, ProjectTemplate } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
@@ -36,6 +35,11 @@ export function Projects() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [creationMode, setCreationMode] = useState<"github" | "template">("github");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [detectionFiles, setDetectionFiles] = useState("package.json\nvite.config.ts\nsrc/App.tsx");
+  const [detection, setDetection] = useState<FrameworkDetection | null>(null);
   const [loading, setLoading] = useState(false);
   const [envRows, setEnvRows] = useState([{ key: "", value: "", is_secret: true }]);
   const [customDomain, setCustomDomain] = useState("");
@@ -53,7 +57,41 @@ export function Projects() {
   useEffect(() => {
     void load().catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar projetos"));
     void api<GitHubRepo[]>("/github/repos").then(setRepos).catch(() => setRepos([]));
+    void api<ProjectTemplate[]>("/templates").then(setTemplates).catch(() => setTemplates([]));
   }, []);
+
+  const applyTemplate = (template: ProjectTemplate) => {
+    setSelectedTemplateId(template.id);
+    setForm({
+      ...form,
+      name: form.name || template.name,
+      project_type: template.project_type,
+      install_command: template.install_command || "",
+      build_command: template.build_command || "",
+      start_command: template.start_command || "",
+      output_directory: template.output_directory || "",
+      internal_port: template.internal_port
+    });
+    setMessage(`Template ${template.name} aplicado.`);
+  };
+
+  const detectFramework = async () => {
+    const files = detectionFiles.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+    const result = await api<FrameworkDetection>("/templates/detect", {
+      method: "POST",
+      body: JSON.stringify({ files })
+    });
+    setDetection(result);
+    setForm({
+      ...form,
+      project_type: result.project_type,
+      install_command: result.install_command || "",
+      build_command: result.build_command || "",
+      start_command: result.start_command || "",
+      output_directory: result.output_directory || "",
+      internal_port: result.default_port
+    });
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -162,8 +200,31 @@ export function Projects() {
 
         <div className="p-4">
           {step === 1 ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-apex-cyan/30 bg-apex-cyan/10 p-4">
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className={`rounded-lg border p-4 text-left transition ${creationMode === "github" ? "border-apex-cyan bg-apex-cyan/10 shadow-glow" : "border-apex-line bg-black/20"}`}
+                  onClick={() => setCreationMode("github")}
+                >
+                  <Github className="mb-2 h-5 w-5 text-apex-cyan" />
+                  <div className="font-medium text-white">Importar do GitHub</div>
+                  <p className="mt-1 text-sm text-apex-muted">Use repositorio conectado, URL manual e webhooks.</p>
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-lg border p-4 text-left transition ${creationMode === "template" ? "border-apex-cyan bg-apex-cyan/10 shadow-glow" : "border-apex-line bg-black/20"}`}
+                  onClick={() => setCreationMode("template")}
+                >
+                  <LayoutTemplate className="mb-2 h-5 w-5 text-apex-cyan" />
+                  <div className="font-medium text-white">Criar usando template</div>
+                  <p className="mt-1 text-sm text-apex-muted">Comece com stack, comandos e porta sugeridos.</p>
+                </button>
+              </div>
+
+              {creationMode === "github" ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-lg border border-apex-cyan/30 bg-apex-cyan/10 p-4">
                 <div className="mb-2 flex items-center gap-2 text-white">
                   <Github className="h-5 w-5 text-apex-cyan" />
                   GitHub
@@ -190,17 +251,41 @@ export function Projects() {
                     GitHub OAuth nao conectado. A URL manual continua disponivel.
                   </div>
                 )}
-              </div>
-              <div className="space-y-4">
-                <label>
-                  <span className="label">URL do repositorio</span>
-                  <input className="field" value={form.github_url} onChange={(event) => setForm({ ...form, github_url: event.target.value })} />
-                </label>
-                <label>
-                  <span className="label">Branch</span>
-                  <input className="field" value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} />
-                </label>
-              </div>
+                  </div>
+                  <div className="space-y-4">
+                    <label>
+                      <span className="label">URL do repositorio</span>
+                      <input className="field" value={form.github_url} onChange={(event) => setForm({ ...form, github_url: event.target.value })} />
+                    </label>
+                    <label>
+                      <span className="label">Branch</span>
+                      <input className="field" value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {templates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={`rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:border-apex-cyan/60 ${
+                        selectedTemplateId === template.id ? "border-apex-cyan bg-apex-cyan/10 shadow-glow" : "border-apex-line bg-black/20"
+                      }`}
+                      onClick={() => applyTemplate(template)}
+                    >
+                      <div className="mb-2 text-2xl">{template.icon}</div>
+                      <div className="font-medium text-white">{template.name}</div>
+                      <p className="mt-1 line-clamp-2 text-sm text-apex-muted">{template.description}</p>
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {template.tags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="rounded-full border border-apex-cyan/30 bg-apex-cyan/10 px-2 py-0.5 text-xs text-apex-cyan">{tag}</span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -251,6 +336,24 @@ export function Projects() {
                   placeholder="dist, build, .next - preparado para automacao futura"
                 />
               </label>
+              <div className="lg:col-span-4 rounded-lg border border-apex-line bg-black/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-white">Deteccao automatica de framework</div>
+                    <p className="muted">Cole nomes de arquivos encontrados no repo para sugerir stack, comandos, output e porta.</p>
+                  </div>
+                  <button className="btn-secondary" type="button" onClick={() => void detectFramework()}>
+                    <SearchCheck className="h-4 w-4" />
+                    Detectar
+                  </button>
+                </div>
+                <textarea className="field min-h-24" value={detectionFiles} onChange={(event) => setDetectionFiles(event.target.value)} />
+                {detection ? (
+                  <div className="mt-3 rounded-md border border-apex-cyan/30 bg-apex-cyan/10 p-3 text-sm text-apex-text">
+                    <strong>{detection.framework}</strong> com {Math.round(detection.confidence * 100)}% de confianca. {detection.reasons.join(" ")}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

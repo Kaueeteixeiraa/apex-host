@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.deps import get_current_user, require_project_access, require_project_permission
-from app.models import Deploy, LogEntry, User
-from app.schemas import DeployRead, DeployRequest, RollbackRequest
+from app.models import Deploy, LogEntry, Project, User
+from app.schemas import DeployRead, DeployRequest, LogAnalysisRead, RollbackRequest
 from app.services.audit import record_audit
 from app.services.deploy_queue import enqueue_deploy
+from app.services.log_analysis import analyze_deploy_logs
 
 
 router = APIRouter(prefix="/projects/{project_id}/deploys", tags=["deploys"])
@@ -33,6 +34,12 @@ def create_deploy(
     db: Session = Depends(get_db),
 ) -> Deploy:
     project = require_project_permission(project_id, db, user, "deploy")
+    deploy_limit = (user.limits or {}).get("deploys_per_day") or (user.limits or {}).get("deploys")
+    if user.role != "admin" and deploy_limit is not None:
+        since = datetime.utcnow() - timedelta(days=1)
+        recent_count = db.query(Deploy).join(Project).filter(Project.owner_id == user.id, Deploy.started_at >= since).count()
+        if recent_count >= int(deploy_limit):
+            raise HTTPException(status_code=403, detail="Daily deploy limit reached for your current plan")
     dry_run = payload.dry_run if payload.dry_run is not None else not get_settings().enable_docker_deploys
     deploy = Deploy(project_id=project.id, branch=project.branch, dry_run=dry_run, status="queued", deploy_type="manual")
     db.add(deploy)
@@ -132,3 +139,18 @@ def rollback_deploy(
     db.commit()
     db.refresh(deploy)
     return deploy
+
+
+@router.post("/{deploy_id}/analysis", response_model=LogAnalysisRead)
+def analyze_deploy(
+    project_id: int,
+    deploy_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_project_access(project_id, db, user)
+    deploy = db.get(Deploy, deploy_id)
+    if deploy is None or deploy.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Deploy not found")
+    logs = db.query(LogEntry).filter(LogEntry.project_id == project_id, LogEntry.deploy_id == deploy_id).order_by(LogEntry.created_at.desc()).limit(300).all()
+    return analyze_deploy_logs(deploy, logs)

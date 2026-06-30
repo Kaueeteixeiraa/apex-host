@@ -6,7 +6,7 @@ from app.deps import get_current_user, require_project_access, require_project_p
 from app.models import LogEntry, Project, ProjectMember, User
 from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate
 from app.services.audit import record_audit
-from app.services.projects import auto_subdomain, slugify, unique_slug
+from app.services.projects import auto_subdomain, delete_project_records, slugify, unique_slug
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -31,6 +31,11 @@ def create_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Project:
+    project_limit = (user.limits or {}).get("projects")
+    if user.role != "admin" and project_limit is not None:
+        owned_count = db.query(Project).filter(Project.owner_id == user.id).count()
+        if owned_count >= int(project_limit):
+            raise HTTPException(status_code=403, detail="Project limit reached for your current plan")
     slug = unique_slug(db, payload.slug or payload.name)
     project = Project(
         owner_id=user.id,
@@ -135,7 +140,7 @@ def delete_project(
         target_id=project.id,
         details={"slug": project.slug, "name": project.name},
     )
-    db.delete(project)
+    delete_project_records(db, project)
     db.commit()
     return {"ok": True}
 

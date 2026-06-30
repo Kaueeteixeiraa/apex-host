@@ -23,6 +23,9 @@ class User(Base):
     github_accounts: Mapped[list["GitHubAccount"]] = relationship(cascade="all, delete-orphan", back_populates="user")
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="user")
     project_memberships: Mapped[list["ProjectMember"]] = relationship(cascade="all, delete-orphan", back_populates="user")
+    sessions: Mapped[list["UserSession"]] = relationship(cascade="all, delete-orphan", back_populates="user")
+    support_tickets: Mapped[list["SupportTicket"]] = relationship(cascade="all, delete-orphan", back_populates="user")
+    support_messages: Mapped[list["SupportMessage"]] = relationship(cascade="all, delete-orphan", back_populates="user")
 
 
 class Project(Base):
@@ -325,3 +328,75 @@ class Alert(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(80))
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class PlatformSetting(Base):
+    __tablename__ = "platform_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    platform_name: Mapped[str] = mapped_column(String(255), default="Apex Host", nullable=False)
+    logo_url: Mapped[str | None] = mapped_column(String(500))
+    primary_color: Mapped[str] = mapped_column(String(40), default="#18b6ff", nullable=False)
+    primary_domain: Mapped[str | None] = mapped_column(String(255))
+    maintenance_mode: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    allow_registration: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    require_account_approval: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    default_user_plan: Mapped[str] = mapped_column(String(80), default="free", nullable=False)
+    default_user_limits: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    smtp_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    alert_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    backup_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    cdn_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="other", nullable=False)
+    priority: Mapped[str] = mapped_column(String(50), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="support_tickets")
+    project: Mapped[Project | None] = relationship()
+    messages: Mapped[list["SupportMessage"]] = relationship(
+        cascade="all, delete-orphan",
+        back_populates="ticket",
+        order_by="SupportMessage.created_at.asc()",
+    )
+
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_admin_reply: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    ticket: Mapped[SupportTicket] = relationship(back_populates="messages")
+    user: Mapped[User] = relationship(back_populates="support_messages")
