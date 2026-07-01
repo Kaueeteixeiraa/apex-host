@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { Copy, Download, Search, RefreshCcw, ScrollText, Sparkles, Trash2 } from "lucide-react";
 
 import { api, formatDate, LogAnalysis, LogEntry } from "../lib/api";
+import { EmptyState } from "../components/EmptyState";
+import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
 import { ProjectSelector } from "../components/ProjectSelector";
 import { ProjectTabs } from "../components/ProjectTabs";
@@ -16,6 +18,7 @@ export function Logs() {
   const [query, setQuery] = useState("");
   const [autoPoll, setAutoPoll] = useState(true);
   const [analysis, setAnalysis] = useState<LogAnalysis | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const loadLogs = async () => {
     if (!selectedId) return;
@@ -45,6 +48,7 @@ export function Logs() {
 
   const copyLogs = async () => {
     await navigator.clipboard.writeText(formatLogLines());
+    setMessage("Logs copiados para a area de transferencia.");
   };
 
   const downloadLogs = () => {
@@ -55,6 +59,7 @@ export function Logs() {
     anchor.download = `apex-host-logs-${selectedProject?.slug || selectedId || "geral"}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
+    setMessage("Download dos logs iniciado.");
   };
 
   if (error) return <div className="panel p-5 text-red-200">{error}</div>;
@@ -67,6 +72,7 @@ export function Logs() {
         description="Build, runtime, erros e eventos de auditoria operacional em uma visao de terminal."
         icon={ScrollText}
       />
+      {message ? <FeedbackBanner type="success" message={message} /> : null}
       {selectedProject ? <ProjectTabs projectId={selectedProject.id} /> : null}
       {loading ? <div className="panel p-5 text-apex-muted">Carregando projetos...</div> : null}
       <div className="panel grid gap-4 p-4 lg:grid-cols-[1fr_160px_1fr_auto_auto_auto_auto_auto] lg:items-end">
@@ -147,7 +153,11 @@ export function Logs() {
             <div className="mt-2 whitespace-pre-wrap text-sm">{log.message}</div>
           </div>
         ))}
-        {filteredLogs.length === 0 ? <div className="p-5 text-apex-muted">Nenhum log encontrado.</div> : null}
+        {filteredLogs.length === 0 ? (
+          <div className="p-4">
+            <EmptyState icon={ScrollText} title="Nenhum log encontrado" description="Quando houver eventos de deploy, runtime ou sistema, eles aparecem neste terminal." />
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { History, Play, RefreshCcw, RotateCcw, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 
 import { Deploy, LogAnalysis, api, formatDate } from "../lib/api";
+import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
 import { ProjectSelector } from "../components/ProjectSelector";
@@ -165,10 +166,24 @@ export function Deploys() {
                 ) : null}
               </div>
             ))}
-            {deploys.length === 0 ? <div className="panel p-5 text-apex-muted">Nenhum deploy para este projeto.</div> : null}
+            {deploys.length === 0 ? (
+              <EmptyState
+                icon={History}
+                title="Nenhum deploy para este projeto"
+                description="Execute o primeiro deploy em dry run para validar comandos, logs e auditoria."
+                action={
+                  <button className="btn-primary" onClick={() => void trigger()}>
+                    <Play className="h-4 w-4" />
+                    Novo deploy
+                  </button>
+                }
+              />
+            ) : null}
           </div>
         </>
-      ) : null}
+      ) : (
+        <EmptyState icon={History} title="Selecione um projeto" description="Escolha um projeto hospedado para acompanhar deploys e preparar rollback." />
+      )}
     </div>
   );
 }

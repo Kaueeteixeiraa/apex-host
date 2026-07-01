@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, Search, SearchCheck, Settings2, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, Search, SearchCheck, Settings2, Trash2 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 import { api, Deploy, Domain, EnvVar, FrameworkDetection, GitHubRepo, Project, ProjectTemplate } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
@@ -22,13 +23,15 @@ const emptyForm = {
 
 const steps = [
   { id: 1, label: "Origem", icon: Github },
-  { id: 2, label: "Build", icon: Settings2 },
-  { id: 3, label: "Envs", icon: KeyRound },
+  { id: 2, label: "Configuracao", icon: Settings2 },
+  { id: 3, label: "Variaveis", icon: KeyRound },
   { id: 4, label: "Dominio", icon: Globe2 },
-  { id: 5, label: "Deploy", icon: Rocket }
+  { id: 5, label: "Revisao/Deploy", icon: Rocket }
 ];
 
 export function Projects() {
+  const location = useLocation();
+  const isNewRoute = location.pathname.endsWith("/new");
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState(1);
@@ -70,6 +73,24 @@ export function Projects() {
     void api<GitHubRepo[]>("/github/repos").then(setRepos).catch(() => setRepos([]));
     void api<ProjectTemplate[]>("/templates").then(setTemplates).catch(() => setTemplates([]));
   }, []);
+
+  const hasUnsavedProjectForm = isNewRoute && (
+    form.name.trim() ||
+    form.slug.trim() ||
+    form.github_url.trim() ||
+    envRows.some((row) => row.key.trim() || row.value.trim()) ||
+    customDomain.trim()
+  );
+
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedProjectForm) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [hasUnsavedProjectForm]);
 
   const applyTemplate = (template: ProjectTemplate) => {
     setSelectedTemplateId(template.id);
@@ -178,14 +199,25 @@ export function Projects() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Projetos Apex"
-        title="Projetos"
-        description="Crie projetos internos, conecte GitHub, configure build, envs, dominios e deploy inicial em dry run seguro."
+        title={isNewRoute ? "Criar projeto" : "Projetos"}
+        description={isNewRoute ? "Fluxo em etapas para origem, configuracao, variaveis, dominio e revisao de deploy." : "Lista de projetos internos hospedados na infraestrutura privada Apex."}
         icon={Boxes}
+        actions={
+          isNewRoute ? (
+            <Link className="btn-secondary" to="/projects" onClick={(event) => {
+              if (hasUnsavedProjectForm && !window.confirm("Descartar formulario de projeto nao salvo?")) event.preventDefault();
+            }}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para projetos
+            </Link>
+          ) : null
+        }
       />
 
       {message ? <FeedbackBanner type="success" message={message} /> : null}
       {error ? <FeedbackBanner type="error" message={error} /> : null}
 
+      {isNewRoute ? (
       <form className="panel overflow-hidden" onSubmit={submit}>
         <div className="border-b border-apex-line p-4">
           <div className="flex gap-2 overflow-x-auto">
@@ -452,8 +484,9 @@ export function Projects() {
           ) : null}
         </div>
       </form>
+      ) : null}
 
-      {projects.length > 0 ? (
+      {!isNewRoute && projects.length > 0 ? (
         <section>
           <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -489,9 +522,27 @@ export function Projects() {
             <EmptyState icon={SearchCheck} title="Nenhum projeto encontrado" description="Ajuste a busca ou o filtro de status para ver outros projetos hospedados." />
           )}
         </section>
-      ) : (
-        <EmptyState icon={Boxes} title="Nenhum projeto hospedado ainda" description="Crie seu primeiro projeto interno da Apex para iniciar um deploy." action={<button className="btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Criar primeiro projeto</button>} />
-      )}
+      ) : null}
+
+      {!isNewRoute && projects.length === 0 ? (
+        <EmptyState
+          icon={Boxes}
+          title="Nenhum projeto hospedado ainda"
+          description="Crie seu primeiro projeto interno da Apex e faca o deploy em ambiente seguro."
+          action={
+            <Link className="btn-primary" to="/projects/new">
+              <Plus className="h-4 w-4" />
+              Criar primeiro projeto
+            </Link>
+          }
+        />
+      ) : null}
+
+      {isNewRoute && projects.length > 0 ? (
+        <div className="panel p-4 text-sm text-apex-muted">
+          Depois de criar, o projeto aparece automaticamente na lista principal.
+        </div>
+      ) : null}
     </div>
   );
 }

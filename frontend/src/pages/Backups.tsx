@@ -28,11 +28,15 @@ export function Backups() {
   }, []);
 
   const createBackup = async () => {
-    setError(null);
-    setMessage(null);
-    const backup = await api<BackupRecord>("/backups/export", { method: "POST" });
-    setMessage(`Backup #${backup.id} gerado com sucesso.`);
-    await load();
+    try {
+      setError(null);
+      setMessage(null);
+      const backup = await api<BackupRecord>("/backups/export", { method: "POST" });
+      setMessage(`Backup #${backup.id} gerado com sucesso.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar backup");
+    }
   };
 
   const restoreBackup = async (backup: BackupRecord) => {
@@ -111,7 +115,7 @@ export function Backups() {
                   <StatusBadge status={backup.status} />
                 </div>
                 <div className="mt-1 text-xs text-apex-muted">
-                  {formatDate(backup.created_at)} · {backup.backup_type} · {backup.size_bytes ? formatBytes(backup.size_bytes) : "tamanho pendente"}
+                  {formatDate(backup.created_at)} | {backup.backup_type} | {backup.size_bytes ? formatBytes(backup.size_bytes) : "tamanho pendente"}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -142,3 +146,4 @@ function nextBackupLabel(createdAt: string) {
   date.setDate(date.getDate() + 1);
   return formatDate(date.toISOString());
 }
+

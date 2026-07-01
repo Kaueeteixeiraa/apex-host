@@ -18,7 +18,7 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { api, InfrastructureStatus } from "../lib/api";
@@ -41,10 +41,12 @@ const nav = [
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [maintenance, setMaintenance] = useState(false);
   const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
 
   useEffect(() => {
     void api<{ maintenance_mode: boolean }>("/public/platform")
@@ -54,6 +56,12 @@ export function AppLayout() {
       .then(setInfra)
       .catch(() => setInfra(null));
   }, []);
+
+  useEffect(() => {
+    setPageLoading(true);
+    const timeout = window.setTimeout(() => setPageLoading(false), 220);
+    return () => window.clearTimeout(timeout);
+  }, [location.pathname]);
 
   const visibleNav = nav.filter((item) => !item.adminOnly || user?.role === "admin");
 
@@ -89,20 +97,21 @@ export function AppLayout() {
 
       <div className={collapsed ? "lg:pl-20" : "lg:pl-64"}>
         <header className="sticky top-0 z-10 border-b border-apex-line/80 bg-apex-bg/82 backdrop-blur-xl">
+          {pageLoading ? <div className="absolute inset-x-0 top-0 h-0.5 bg-apex-cyan shadow-glow" /> : null}
           <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3">
-              <button className="btn-secondary p-2 lg:hidden" onClick={() => setDrawerOpen(true)} title="Abrir menu">
+            <div className="flex min-w-0 items-center gap-3">
+              <button className="btn-secondary shrink-0 p-2 lg:hidden" onClick={() => setDrawerOpen(true)} title="Abrir menu">
                 <Menu className="h-4 w-4" />
               </button>
-              <ApexLogo className="h-9 w-9 lg:hidden" />
-              <div>
+              <ApexLogo className="hidden h-9 w-9 shrink-0 sm:block lg:hidden" />
+              <div className="min-w-0">
                 <div className="text-sm font-medium text-white">Apex Technologies</div>
-                <div className="text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
+                <div className="truncate text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
               <HealthPill status={infra?.overall_status || "stable"} />
-              <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block">
+              <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block" title="Rodando no ambiente local desta maquina.">
                 {labelEnvironment(infra?.environment)}
               </div>
               {infra?.dry_run ? (
@@ -112,12 +121,14 @@ export function AppLayout() {
               ) : null}
               <NavLink className="btn-secondary hidden sm:inline-flex" to="/logs">
                 <ScrollText className="h-4 w-4" />
-                Logs
+                <span className="hidden md:inline">Logs</span>
               </NavLink>
-              <NavLink className="btn-primary hidden sm:inline-flex" to="/projects">
+              {location.pathname !== "/projects/new" ? (
+              <NavLink className="btn-primary hidden sm:inline-flex" to="/projects/new">
                 <Plus className="h-4 w-4" />
-                Novo projeto
+                <span className="hidden md:inline">Novo projeto</span>
               </NavLink>
+              ) : null}
               <div className="hidden items-center gap-2 rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted sm:flex">
                 <Gauge className="h-3.5 w-3.5 text-apex-cyan" />
                 {user?.email}
@@ -153,15 +164,15 @@ function SidebarContent({
   let lastSection = "";
   return (
     <>
-      <div className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between gap-3"}`}>
-        <div className="flex items-center gap-3">
-          <ApexLogo className="h-11 w-11" />
-          {!collapsed ? <div>
+      <div className={collapsed ? "mb-8 flex flex-col items-center gap-3" : "mb-8 flex items-center justify-between gap-3"}>
+        <div className={collapsed ? "grid place-items-center" : "flex min-w-0 items-center gap-3"}>
+          <ApexLogo className="h-11 w-11 shrink-0" />
+          {!collapsed ? <div className="min-w-0">
             <div className="font-semibold text-white">Apex Host</div>
-            <div className="text-xs text-apex-muted">Infraestrutura privada Apex</div>
+            <div className="truncate text-xs text-apex-muted">Infraestrutura privada Apex</div>
           </div> : null}
         </div>
-        <button className="btn-secondary p-2" onClick={onToggle} title={mobile ? "Fechar menu" : "Recolher menu"}>
+        <button className="btn-secondary shrink-0 p-2" onClick={onToggle} title={mobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Recolher menu"}>
           {mobile ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
       </div>
@@ -179,7 +190,7 @@ function SidebarContent({
                 end={item.to === "/"}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `flex items-center ${collapsed ? "justify-center" : "gap-3"} rounded-md border px-3 py-2 text-sm transition duration-200 ${
+                  `flex h-10 items-center ${collapsed ? "justify-center px-0" : "gap-3 px-3"} rounded-md border py-2 text-sm transition duration-200 ${
                     isActive
                       ? "border-apex-cyan/50 bg-apex-cyan/10 text-white shadow-glow"
                       : "border-transparent text-apex-muted hover:border-apex-line hover:bg-white/5 hover:text-white"
@@ -213,7 +224,7 @@ function HealthPill({ status }: { status: string }) {
         : "border-emerald-400/40 bg-emerald-400/10 text-emerald-100";
   const label = status === "critical" ? "Critico" : status === "attention" ? "Atencao" : "Estavel";
   return (
-    <div className={`hidden items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium sm:flex ${tone}`}>
+    <div className={`hidden items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium sm:flex ${tone}`} title={label === "Estavel" ? "Todos os servicos principais estao estaveis." : "Ha alertas ou servicos exigindo atencao no monitoramento."}>
       <span className="h-2 w-2 rounded-full bg-current apex-pulse" />
       {label}
     </div>

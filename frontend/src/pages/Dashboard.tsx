@@ -12,7 +12,6 @@ import {
   type LucideIcon,
   MemoryStick,
   Rocket,
-  ScrollText,
   Settings,
   ShieldCheck
 } from "lucide-react";
@@ -71,18 +70,6 @@ export function Dashboard() {
         title="Dashboard"
         description="Visao operacional de projetos Apex, deploys internos, backups e saude geral da VPS."
         icon={Activity}
-        actions={
-          <>
-            <Link to="/logs" className="btn-secondary">
-              <ScrollText className="h-4 w-4" />
-              Logs
-            </Link>
-            <Link to="/projects" className="btn-primary">
-              <Rocket className="h-4 w-4" />
-              Novo projeto
-            </Link>
-          </>
-        }
       />
 
       {message ? <FeedbackBanner type="success" message={message} /> : null}
@@ -152,7 +139,7 @@ export function Dashboard() {
             title="Nenhum projeto hospedado ainda"
             description="A infraestrutura esta pronta para receber o primeiro site interno da Apex."
             action={
-              <Link className="btn-primary" to="/projects">
+              <Link className="btn-primary" to="/projects/new">
                 <Rocket className="h-4 w-4" />
                 Criar primeiro projeto
               </Link>

@@ -36,6 +36,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="projects" element={<Projects />} />
+        <Route path="projects/new" element={<Projects />} />
         <Route path="projects/:projectId" element={<ProjectDetail />} />
         <Route path="projects/:projectId/deploys" element={<Deploys />} />
         <Route path="projects/:projectId/logs" element={<Logs />} />
