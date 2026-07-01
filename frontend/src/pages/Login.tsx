@@ -77,7 +77,7 @@ export function Login() {
       } else {
         if (password !== confirmPassword) throw new Error("As senhas nao conferem.");
         if (passwordScore < 4) throw new Error("Use senha com 8 caracteres, letra minuscula, letra maiuscula e numero.");
-        await register({
+        const result = await register({
           full_name: fullName,
           email,
           password,
@@ -85,7 +85,17 @@ export function Login() {
           account_type: accountType,
           admin_signup_code: adminCode || undefined
         });
-        setSuccess(accountType === "admin" && !adminCode ? "Conta criada como Viewer aguardando aprovacao." : "Conta criada. Abrindo dashboard...");
+        if (result.status === "pending_approval") {
+          setSuccess(result.message || "Conta criada e aguardando aprovacao de um Admin.");
+          setProgress(100);
+          window.setTimeout(() => {
+            setMode("login");
+            setLoading(false);
+            setProgress(0);
+          }, 700);
+          return;
+        }
+        setSuccess(result.message || "Conta criada. Abrindo dashboard...");
       }
       setProgress(100);
       window.setTimeout(() => setRedirect(true), 520);

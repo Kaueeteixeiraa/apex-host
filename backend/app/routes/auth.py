@@ -10,7 +10,7 @@ from app.core.security import create_access_token, get_password_hash, hash_token
 from app.db.session import get_db
 from app.deps import get_current_user, oauth2_scheme
 from app.models import User, UserSession
-from app.schemas import LoginRequest, RegisterRequest, Token, TwoFactorSetupRead, UserRead, UserSessionRead
+from app.schemas import LoginRequest, RegisterRequest, RegisterResponse, Token, TwoFactorSetupRead, UserRead, UserSessionRead
 from app.services.audit import record_audit
 from app.services.platform import get_or_create_platform_settings
 from app.services.access_profiles import limits_for_profile
@@ -33,8 +33,8 @@ def _issue_session_token(db: Session, user: User, request: Request) -> Token:
     return Token(access_token=token)
 
 
-@router.post("/register", response_model=Token)
-def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)) -> Token:
+@router.post("/register", response_model=RegisterResponse)
+def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)) -> RegisterResponse:
     settings = get_settings()
     platform = get_or_create_platform_settings(db)
     ip_address = request.client.host if request.client else "unknown"
@@ -47,21 +47,22 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     requested_role = payload.account_type
-    role = requested_role
-    access_profile = "dev" if requested_role == "dev" else "viewer"
+    role = "viewer"
+    access_profile = "viewer"
     is_active = True
+
+    if requested_role == "admin" and settings.admin_signup_code and payload.admin_signup_code == settings.admin_signup_code:
+        role = "admin"
+        access_profile = "admin_internal"
+    elif requested_role == "admin" or platform.require_account_approval:
+        role = "viewer"
+        access_profile = "pending_approval"
+        is_active = False
+    elif requested_role == "dev":
+        role = "dev"
+        access_profile = "dev"
+
     limits = limits_for_profile(access_profile) | {"requested_role": requested_role, "approval_required": not is_active}
-    if requested_role == "admin":
-        if settings.admin_signup_code and payload.admin_signup_code == settings.admin_signup_code:
-            role = "admin"
-            access_profile = "admin_internal"
-            is_active = True
-            limits = limits_for_profile("admin_internal") | {"requested_role": requested_role, "approval_required": False}
-        else:
-            role = "viewer"
-            access_profile = "pending_approval"
-            is_active = False
-            limits = limits_for_profile("pending_approval") | {"requested_role": requested_role, "approval_required": True}
 
     user = User(
         email=email,
@@ -86,10 +87,20 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
             "user_agent": request.headers.get("user-agent"),
         },
     )
-    token = _issue_session_token(db, user, request)
+    token = _issue_session_token(db, user, request) if is_active else None
     db.commit()
     db.refresh(user)
-    return token
+    if token is None:
+        return RegisterResponse(
+            status="pending_approval",
+            message="Conta criada e aguardando aprovacao de um Admin.",
+        )
+    return RegisterResponse(
+        access_token=token.access_token,
+        token_type=token.token_type,
+        status="active",
+        message="Conta criada. Abrindo dashboard.",
+    )
 
 
 @router.post("/login", response_model=Token)
@@ -111,7 +122,8 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     if not user.is_active:
         record_audit(db, "auth.login_blocked", user=user, ip_address=ip_address)
         db.commit()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+        detail = "Conta aguardando aprovacao de um Admin" if user.access_profile == "pending_approval" else "User is inactive"
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
     clear_rate_limit(rate_key)
     token = _issue_session_token(db, user, request)
     record_audit(db, "auth.login_success", user=user, ip_address=ip_address, details={"user_agent": request.headers.get("user-agent")})

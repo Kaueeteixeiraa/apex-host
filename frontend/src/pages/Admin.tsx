@@ -30,6 +30,14 @@ export function Admin() {
     await load();
   };
 
+  const approveUser = async (item: User, role: "dev" | "viewer") => {
+    await updateUser(item, {
+      role,
+      access_profile: role,
+      is_active: true
+    });
+  };
+
   const suspendProject = async (project: Project) => {
     await api<Project>(`/admin/projects/${project.id}/suspend`, { method: "POST" });
     setMessage(`Projeto ${project.slug} suspenso.`);
@@ -130,9 +138,17 @@ export function Admin() {
                       </select>
                     </td>
                     <td className="p-2">
-                      <button className={item.is_active ? "btn-secondary" : "btn-danger"} onClick={() => void updateUser(item, { is_active: !item.is_active })}>
-                        {item.is_active ? "Ativo" : "Bloqueado"}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button className={item.is_active ? "btn-secondary" : "btn-danger"} onClick={() => void updateUser(item, { is_active: !item.is_active })}>
+                          {item.is_active ? "Ativo" : "Bloqueado"}
+                        </button>
+                        {item.access_profile === "pending_approval" || !item.is_active ? (
+                          <>
+                            <button className="btn-secondary" onClick={() => void approveUser(item, "viewer")}>Aprovar Viewer</button>
+                            <button className="btn-primary" onClick={() => void approveUser(item, "dev")}>Aprovar Dev</button>
+                          </>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

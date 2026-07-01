@@ -59,7 +59,7 @@ export function Settings() {
               <dd className="text-white">{user?.email}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-apex-muted">Plano</dt>
+              <dt className="text-apex-muted">Perfil</dt>
               <dd className="text-white">{user?.access_profile}</dd>
             </div>
           </dl>

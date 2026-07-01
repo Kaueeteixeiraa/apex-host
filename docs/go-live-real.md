@@ -40,6 +40,8 @@ Checklist para colocar o Apex Host em um dominio publico para colaboradores.
 - [ ] Logs visiveis.
 - [ ] Rollback testado.
 
+Roteiro detalhado: [`docs/go-live-apex-realms.md`](go-live-apex-realms.md).
+
 ## Comandos uteis
 
 ```bash

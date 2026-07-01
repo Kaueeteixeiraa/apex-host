@@ -66,10 +66,20 @@ def update_user(
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
     data = payload.model_dump(exclude_unset=True)
+    profile_to_role = {"admin_internal": "admin", "dev": "dev", "viewer": "viewer", "pending_approval": "viewer"}
+    role_to_profile = {"admin": "admin_internal", "dev": "dev", "viewer": "viewer"}
+    if "access_profile" in data and data["access_profile"]:
+        data["role"] = profile_to_role[data["access_profile"]]
+        if data["access_profile"] == "pending_approval" and "is_active" not in data:
+            data["is_active"] = False
+    elif "role" in data and data["role"]:
+        data["access_profile"] = role_to_profile[data["role"]]
     if "access_profile" in data and data["access_profile"] and "limits" not in data:
         data["limits"] = limits_for_profile(data["access_profile"])
     if target.id == admin.id and data.get("is_active") is False:
         raise HTTPException(status_code=409, detail="You cannot block your own admin account")
+    if target.id == admin.id and data.get("role") and data["role"] != "admin":
+        raise HTTPException(status_code=409, detail="You cannot remove your own admin role")
     for key, value in data.items():
         setattr(target, key, value)
     record_audit(

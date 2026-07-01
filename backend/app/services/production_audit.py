@@ -40,6 +40,15 @@ def _secret_strong(value: str | None) -> bool:
     return bool(value and value not in weak and len(value) >= 32)
 
 
+def _optional_admin_code_safe(value: str | None) -> bool:
+    if not value:
+        return True
+    lowered = value.lower()
+    if any(marker in lowered for marker in ("replace-with", "change-me", "example", "apex-admin")):
+        return False
+    return len(value) >= 24
+
+
 def _http_ok(url: str | None) -> bool:
     if not url:
         return False
@@ -145,7 +154,7 @@ def production_audit(db: Session) -> dict:
         _item("cors", "CORS restrito", "*" not in settings.backend_cors_origins and "localhost" not in settings.backend_cors_origins, problem="CORS ainda parece local ou aberto.", why="CORS amplo aumenta superficie de abuso.", fix="Configure BACKEND_CORS_ORIGINS com o dominio publico real."),
         _item("jwt", "JWT_SECRET forte", _secret_strong(settings.effective_jwt_secret), severity="critical", problem="JWT_SECRET fraco.", why="Tokens de login dependem desse segredo.", fix="Gere segredo com openssl rand -hex 32."),
         _item("encryption", "ENCRYPTION_KEY forte", _secret_strong(settings.effective_encryption_key), severity="critical", problem="ENCRYPTION_KEY fraca.", why="Variaveis secretas dos projetos sao protegidas por ela.", fix="Gere segredo com openssl rand -hex 32."),
-        _item("admin_code", "ADMIN_SIGNUP_CODE forte ou admin publico fechado", not settings.admin_signup_code or len(settings.admin_signup_code) >= 24, problem="ADMIN_SIGNUP_CODE fraco.", why="Cadastro admin nao pode ser trivial.", fix="Use codigo forte ou deixe vazio para desabilitar cadastro admin publico."),
+        _item("admin_code", "ADMIN_SIGNUP_CODE forte ou admin publico fechado", _optional_admin_code_safe(settings.admin_signup_code), problem="ADMIN_SIGNUP_CODE fraco ou placeholder.", why="Cadastro admin nao pode ser trivial.", fix="Use codigo forte ou deixe vazio para desabilitar cadastro admin publico."),
         _item("admin", "Admin seguro criado", bool(admins) and all(admin.email != "admin@apex.local" for admin in admins), severity="critical", problem="Admin ausente ou padrao.", why="Go Live exige primeiro Admin real e auditavel.", fix="Use assistente inicial ou scripts/create-admin.sh com email real."),
         _item("postgres_private", "Postgres nao exposto publicamente", not postgres_exposed, severity="critical", problem="Postgres parece exposto.", why="Banco nao deve aceitar trafego publico.", fix="Remova publicacao de porta 5432 e use rede interna."),
         _item("redis_private", "Redis nao exposto publicamente", not redis_exposed, severity="critical", problem="Redis parece exposto.", why="Redis sem autenticacao publica e risco critico.", fix="Remova publicacao de porta 6379 e use rede interna."),

@@ -10,7 +10,7 @@ Abra o link publico informado pelo Admin:
 https://host.{BASE_DOMAIN}
 ```
 
-Use e-mail e senha cadastrados. Se a conta ainda estiver pendente, aguarde aprovacao de um Admin.
+Use e-mail e senha cadastrados. Se a conta ainda estiver pendente, o login mostra que a aprovacao ainda nao foi concluida.
 
 ## Criar conta
 
@@ -18,13 +18,32 @@ Use e-mail e senha cadastrados. Se a conta ainda estiver pendente, aguarde aprov
 2. Clique em `Cadastro`.
 3. Informe nome, e-mail e senha forte.
 4. Escolha tipo de conta:
-   - `Dev`: cria e deploya projetos quando aprovado.
-   - `Viewer`: visualiza projetos e logs.
-   - `Admin`: apenas com codigo interno forte ou criacao pelo Admin.
+   - `Viewer`: visualiza projetos, logs e status.
+   - `Dev`: cria projetos, executa deploys e ve logs quando aprovado.
+   - `Admin`: somente com codigo interno forte, assistente inicial ou script seguro.
 
-Admins nao devem ser criados livremente por cadastro publico.
+Admins nao devem ser criados livremente por cadastro publico. Se a plataforma estiver com aprovacao obrigatoria, contas Dev e Viewer entram como `pending_approval` ate um Admin aprovar.
+
+## Aguardar aprovacao
+
+1. Depois do cadastro, aguarde o Admin revisar a conta.
+2. O Admin acessa `Painel Admin` -> `Usuarios cadastrados`.
+3. O Admin escolhe `Aprovar Viewer` ou `Aprovar Dev`.
+4. Depois disso, faca login novamente.
+
+Nao existem perfis Cliente ou Plano no Apex Host. O acesso e interno: Admin, Dev ou Viewer.
+
+## Acessar painel
+
+- `Dashboard`: saude da plataforma, projetos recentes e atalhos.
+- `Projetos`: lista de sites hospedados.
+- `Deploys`: historico e execucao de deploys.
+- `Logs`: logs gerais e por projeto.
+- `/status`: status publico para consulta rapida.
 
 ## Criar projeto
+
+Disponivel para Admins e Devs aprovados.
 
 1. Acesse `Projetos`.
 2. Clique em `Novo projeto`.

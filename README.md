@@ -60,10 +60,12 @@ Acesse:
 - Backend: http://localhost:8000
 - Healthcheck: http://localhost:8000/health
 
-Credenciais iniciais:
+Credenciais locais de desenvolvimento:
 
 - Email: `admin@apex.local`
 - Senha: `apex-admin`
+
+Use essas credenciais somente em ambiente local/dev quando `BOOTSTRAP_DEFAULT_ADMIN=true`. Em producao elas nao devem existir. O primeiro Admin de producao deve ser criado pelo assistente inicial ou por `scripts/create-admin.sh` com e-mail real e senha forte.
 
 ## Docker Compose
 
@@ -93,6 +95,7 @@ Arquivos principais:
 - `docs/staging-vps-checklist.md`: checklist da fase "Staging VPS - Validacao Real".
 - `docs/domain-dns-go-live.md`: DNS, dominio e SSL para link publico.
 - `docs/go-live-real.md`: checklist de Go Live em Producao Real.
+- `docs/go-live-apex-realms.md`: checklist do primeiro projeto real usando Apex Realms.
 - `docs/collaborators.md`: guia para Devs e Viewers acessarem o painel publico.
 - `docs/deploy-apex-realms.md`: roteiro especifico para hospedar o Apex Realms como primeiro projeto interno real.
 - `docs/first-real-deploy-checklist.md`: checklist do primeiro deploy real em VPS.
@@ -110,7 +113,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Importante: na Staging VPS use `ENVIRONMENT=production`, `DEPLOY_STAGE=staging_vps`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_PASSWORD` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas.
+Importante: na Staging VPS use `ENVIRONMENT=production`, `DEPLOY_STAGE=staging_vps`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas. Crie o Admin pelo assistente inicial ou por `scripts/create-admin.sh`; nao use credenciais padrao.
 
 ## Teste real em Staging VPS
 
@@ -149,6 +152,23 @@ O Apex Realms e o primeiro projeto recomendado para validar a hospedagem. Depois
 
 Checklist da fase: [`docs/staging-vps-checklist.md`](docs/staging-vps-checklist.md).
 
+## Producao real para colaboradores
+
+Para abrir o Apex Host em link real para poucos colaboradores, saia do modo local/dry run somente em uma VPS preparada:
+
+1. Copie `.env.production.example` para `.env.production`.
+2. Configure `APP_ENV=production`, `APP_STAGE=go_live`, `DRY_RUN=false`, `DEPLOY_MODE=docker`, `ENABLE_DOCKER_DEPLOYS=true` e `ENABLE_BUILD_COMMANDS=true`.
+3. Defina `PUBLIC_APP_URL`, `API_URL`, `BASE_DOMAIN`, `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`, `CERTBOT_EMAIL`, `DOCKER_NETWORK`, `BACKUP_PATH` e `BACKUP_RETENTION_DAYS` com valores reais.
+4. Deixe `BOOTSTRAP_DEFAULT_ADMIN=false`; crie o primeiro Admin pelo assistente inicial ou por `scripts/create-admin.sh`.
+5. Configure DNS para `host.{BASE_DOMAIN}` e para os projetos, por exemplo `realms.{BASE_DOMAIN}`.
+6. Rode `scripts/setup-vps.sh`, `scripts/deploy-production.sh` e depois `scripts/check-production.sh`.
+7. Abra `/production-audit`; nao libere colaboradores enquanto existir falha critica.
+8. Mantenha `PUBLIC_REGISTRATION_ENABLED` conforme a fase de teste e `require_account_approval=true` para aprovar Devs/Viewers manualmente.
+9. No painel Admin, aprove colaboradores como `Viewer` ou `Dev`. Nao ha perfil Cliente ou Plano.
+10. Publique o Apex Realms pelo botao `Publicar Apex Realms` e valide dominio, SSL, logs, health check, redeploy e rollback.
+
+Credenciais `admin@apex.local` / `apex-admin` sao somente para desenvolvimento local e nunca devem estar no banco de producao.
+
 ## Go Live - Producao Real
 
 Para sair de localhost e abrir o Apex Host para colaboradores, use a fase `Go Live - Producao Real`.
@@ -165,7 +185,7 @@ Fluxo:
 8. Publique o Apex Realms como primeiro projeto publico.
 9. Rode `scripts/check-production.sh`.
 
-Checklist: [`docs/go-live-real.md`](docs/go-live-real.md). Guia dos colaboradores: [`docs/collaborators.md`](docs/collaborators.md).
+Checklist: [`docs/go-live-real.md`](docs/go-live-real.md). Guia dos colaboradores: [`docs/collaborators.md`](docs/collaborators.md). Primeiro projeto: [`docs/go-live-apex-realms.md`](docs/go-live-apex-realms.md).
 
 ## Primeiro projeto recomendado: Apex Realms
 
@@ -188,10 +208,13 @@ Fluxo recomendado:
 
 Documentacao completa: [`docs/deploy-apex-realms.md`](docs/deploy-apex-realms.md). Checklist do primeiro teste: [`docs/first-real-deploy-checklist.md`](docs/first-real-deploy-checklist.md).
 
-## Variaveis importantes
+## Variaveis importantes para desenvolvimento local
+
+Exemplo local para rodar em `localhost`. Em producao, use `.env.production.example`, `BOOTSTRAP_DEFAULT_ADMIN=false` e crie o Admin por setup/script.
 
 ```env
 SECRET_KEY=change-this-long-random-secret
+# Somente local/dev com BOOTSTRAP_DEFAULT_ADMIN=true:
 ADMIN_EMAIL=admin@apex.local
 ADMIN_PASSWORD=apex-admin
 
@@ -237,6 +260,8 @@ Seguranca do cadastro:
 - O Admin tambem pode desativar cadastro na tela Admin por configuracao de plataforma.
 - Usuario que pede Admin so recebe Admin se informar `ADMIN_SIGNUP_CODE`.
 - Sem codigo valido, a conta Admin solicitada vira Viewer inativo aguardando aprovacao.
+- Quando `require_account_approval=true`, cadastros Dev e Viewer entram como `pending_approval` ate o Admin aprovar.
+- O Admin aprova usuarios no painel Admin definindo `Viewer` ou `Dev`; Admin publico deve ficar desabilitado ou protegido por codigo forte.
 - A trilha de auditoria registra papel solicitado e papel concedido.
 - A politica minima de senha exige 8 caracteres, letra maiuscula, letra minuscula e numero.
 - Logins geram sessoes com IP e user-agent; o usuario pode sair de todos os dispositivos.

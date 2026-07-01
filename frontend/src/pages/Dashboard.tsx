@@ -66,6 +66,8 @@ export function Dashboard() {
   if (!data) return <DashboardSkeleton />;
 
   const health = data.error_projects > 0 ? "Atencao necessaria" : data.building_projects > 0 ? "Deploys em andamento" : "Operacao estavel";
+  const normalizedStage = (infra?.deploy_stage || "").toLowerCase().replace("_", "-");
+  const isProductionEnvironment = infra?.environment === "production" || normalizedStage === "go-live" || normalizedStage === "production";
 
   return (
     <div className="space-y-6">
@@ -77,7 +79,7 @@ export function Dashboard() {
       />
 
       {message ? <FeedbackBanner type="success" message={message} /> : null}
-      {audit?.status === "critical" ? (
+      {isProductionEnvironment && audit?.status === "critical" ? (
         <FeedbackBanner
           type="error"
           message={`Go Live inseguro: ${audit.critical_failures.slice(0, 4).join(", ")}${audit.critical_failures.length > 4 ? "..." : ""}. Abra Auditoria de Producao antes de liberar colaboradores.`}

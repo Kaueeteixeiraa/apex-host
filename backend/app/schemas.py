@@ -11,6 +11,13 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class RegisterResponse(BaseModel):
+    access_token: str | None = None
+    token_type: str = "bearer"
+    status: str
+    message: str
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -473,7 +480,7 @@ class ConfirmAction(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern=r"^(admin|dev|viewer)$")
-    access_profile: str | None = Field(default=None, max_length=80)
+    access_profile: str | None = Field(default=None, max_length=80, pattern=r"^(viewer|dev|admin_internal|pending_approval)$")
     is_active: bool | None = None
     limits: dict[str, Any] | None = None
 

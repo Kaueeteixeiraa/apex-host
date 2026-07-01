@@ -7,7 +7,7 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<RegisterResult>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 };
@@ -19,6 +19,13 @@ type RegisterPayload = {
   confirm_password: string;
   account_type: "admin" | "dev" | "viewer";
   admin_signup_code?: string;
+};
+
+type RegisterResult = {
+  access_token: string | null;
+  token_type: string;
+  status: "active" | "pending_approval" | string;
+  message: string;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -58,12 +65,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (payload: RegisterPayload) => {
-    const token = await api<{ access_token: string }>("/auth/register", {
+    const result = await api<RegisterResult>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload)
     });
-    setToken(token.access_token);
-    await refreshUser();
+    if (result.access_token) {
+      setToken(result.access_token);
+      await refreshUser();
+    } else {
+      setToken(null);
+      setUser(null);
+    }
+    return result;
   };
 
   const logout = () => {
