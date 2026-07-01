@@ -13,6 +13,16 @@ EMAIL="$1"
 PASSWORD="$2"
 NAME="${3:-Apex Admin}"
 
+if [[ "$EMAIL" == "admin@apex.local" ]]; then
+  echo "Refusing default local admin email in production."
+  exit 1
+fi
+
+if [[ ${#PASSWORD} -lt 12 ]]; then
+  echo "Password must have at least 12 characters."
+  exit 1
+fi
+
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T backend \
   python -m app.scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
 

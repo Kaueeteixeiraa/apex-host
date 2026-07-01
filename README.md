@@ -22,6 +22,8 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies. O foco at
 - Templates de projeto, deteccao automatica de framework e status publico em `/status`.
 - Ajuda operacional para deploy, dominios, logs, fallback, rollback e VPS.
 - Analise local de logs/deploys preparada para futura integracao com IA.
+- Go Live Assistant para primeira instalacao sem admin padrao.
+- Auditoria de Producao em `/production-audit` com score, falhas criticas e correcoes.
 
 ## Rodando localmente
 
@@ -86,8 +88,14 @@ Antes de usar como hospedagem principal dos sites da Apex, trate a primeira VPS 
 Arquivos principais:
 
 - `docker-compose.prod.yml`: stack de producao com Postgres, Redis, backend, worker, frontend e backup diario.
-- `nginx/apex-host.conf.example`: Nginx com SSL, headers de seguranca, rate limit, proxy de API/painel e compatibilidade WebSocket.
+- `nginx/apex-host.prod.conf.example`: Nginx com SSL, headers de seguranca, rate limit, proxy de API/painel, wildcard de projetos e compatibilidade WebSocket.
 - `docs/production-vps.md`: passo a passo completo para Ubuntu, SSH, firewall, Docker, Nginx, Certbot, dominio, SSL, migrations, Admin, webhook, deploy, rollback e backup.
+- `docs/staging-vps-checklist.md`: checklist da fase "Staging VPS - Validacao Real".
+- `docs/domain-dns-go-live.md`: DNS, dominio e SSL para link publico.
+- `docs/go-live-real.md`: checklist de Go Live em Producao Real.
+- `docs/collaborators.md`: guia para Devs e Viewers acessarem o painel publico.
+- `docs/deploy-apex-realms.md`: roteiro especifico para hospedar o Apex Realms como primeiro projeto interno real.
+- `docs/first-real-deploy-checklist.md`: checklist do primeiro deploy real em VPS.
 - `docs/staging-vps-test-plan.md`: roteiro de validacao com HTML, React/Vite, Next.js e Flask/FastAPI.
 - `docs/backup-restore.md`: rotina de backup manual/automatico e restore testado.
 - `docs/security-go-live.md`: checklist de seguranca antes do go-live.
@@ -119,6 +127,66 @@ Resumo do teste real:
 - Configurar dominio customizado e gerar SSL.
 - Testar health check, auto-restart, rollback, backup, download de backup e fallback.
 - Testar pagina publica `/status`, auditoria, bloqueio de usuario, backups e modo manutencao.
+
+## Validacao real em VPS com Apex Realms
+
+Dry run e o modo padrao para desenvolvimento: ele valida fluxo, comandos, auditoria e logs sem alterar containers reais. A fase `Staging VPS - Validacao Real` usa Docker/Nginx/SSL de verdade e deve acontecer antes do Apex Host virar hospedagem principal.
+
+Flags obrigatorias da staging real:
+
+```env
+APP_ENV=production
+DEPLOY_STAGE=staging_vps
+DRY_RUN=false
+DEPLOY_MODE=docker
+ENABLE_DOCKER_DEPLOYS=true
+ENABLE_BUILD_COMMANDS=true
+```
+
+Com essas flags, o painel nao deve mostrar `DRY RUN ATIVO`, deve exibir `Staging VPS` ou `Producao`, e deploys devem criar containers, logs, rotas Nginx e health checks reais.
+
+O Apex Realms e o primeiro projeto recomendado para validar a hospedagem. Depois que o checklist passar, o Apex Host pode comecar a hospedar os sites internos da Apex.
+
+Checklist da fase: [`docs/staging-vps-checklist.md`](docs/staging-vps-checklist.md).
+
+## Go Live - Producao Real
+
+Para sair de localhost e abrir o Apex Host para colaboradores, use a fase `Go Live - Producao Real`.
+
+Fluxo:
+
+1. Configure DNS e SSL conforme [`docs/domain-dns-go-live.md`](docs/domain-dns-go-live.md).
+2. Configure `.env.production` com `APP_ENV=production`, `APP_STAGE=go_live`, `DRY_RUN=false`, `DEPLOY_MODE=docker`, `ENABLE_DOCKER_DEPLOYS=true` e `ENABLE_BUILD_COMMANDS=true`.
+3. Rode `scripts/setup-vps.sh`.
+4. Rode `scripts/deploy-production.sh`.
+5. Acesse `https://host.{BASE_DOMAIN}`.
+6. Se nao existir Admin, conclua o assistente `Bem-vindo ao Apex Host`.
+7. Abra `/production-audit` e corrija falhas criticas.
+8. Publique o Apex Realms como primeiro projeto publico.
+9. Rode `scripts/check-production.sh`.
+
+Checklist: [`docs/go-live-real.md`](docs/go-live-real.md). Guia dos colaboradores: [`docs/collaborators.md`](docs/collaborators.md).
+
+## Primeiro projeto recomendado: Apex Realms
+
+Use o Apex Realms como primeiro teste real porque ele valida o fluxo completo de hospedagem interna: importacao GitHub, variaveis isoladas, Docker real, Nginx, dominio, logs, health check, redeploy e rollback.
+
+Repositorio:
+
+```text
+https://github.com/Kaueeteixeiraa/apex-realms.git
+```
+
+Fluxo recomendado:
+
+1. Suba o Apex Host na Staging VPS com `DRY_RUN=false`, `DEPLOY_MODE=docker`, `ENABLE_DOCKER_DEPLOYS=true` e `ENABLE_BUILD_COMMANDS=true`.
+2. Abra `Projetos` e clique em `Hospedar Apex Realms` ou `Novo projeto` -> `Projeto interno Apex` -> `Apex Realms`.
+3. Revise o preset: branch `main`, install `pip install -r requirements.txt`, start `gunicorn app:app --bind 0.0.0.0:5000`, porta `5000`.
+4. Configure `realms.{BASE_DOMAIN}` ou outro dominio valido.
+5. Rode deploy real e acompanhe as etapas no painel.
+6. Valide `docker ps`, logs, Nginx, SSL, health check, redeploy e rollback.
+
+Documentacao completa: [`docs/deploy-apex-realms.md`](docs/deploy-apex-realms.md). Checklist do primeiro teste: [`docs/first-real-deploy-checklist.md`](docs/first-real-deploy-checklist.md).
 
 ## Variaveis importantes
 

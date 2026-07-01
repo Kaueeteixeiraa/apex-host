@@ -8,6 +8,7 @@ import { Domains } from "./pages/Domains";
 import { EnvVars } from "./pages/EnvVars";
 import { Help } from "./pages/Help";
 import { Infrastructure } from "./pages/Infrastructure";
+import { InitialSetup } from "./pages/InitialSetup";
 import { Login } from "./pages/Login";
 import { Logs } from "./pages/Logs";
 import { Monitoring } from "./pages/Monitoring";
@@ -16,6 +17,7 @@ import { Backups } from "./pages/Backups";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { Projects } from "./pages/Projects";
 import { PublicStatus } from "./pages/PublicStatus";
+import { ProductionAudit } from "./pages/ProductionAudit";
 import { Settings } from "./pages/Settings";
 import { ServerError } from "./pages/ServerError";
 import { Availability } from "./pages/Availability";
@@ -25,6 +27,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/setup" element={<InitialSetup />} />
       <Route path="/status" element={<PublicStatus />} />
       <Route path="/500" element={<ServerError />} />
       <Route
@@ -49,6 +52,7 @@ export default function App() {
         <Route path="domains" element={<Domains />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="infrastructure" element={<Infrastructure />} />
+        <Route path="production-audit" element={<ProductionAudit />} />
         <Route path="backups" element={<Backups />} />
         <Route path="help" element={<Help />} />
         <Route path="admin" element={<Admin />} />

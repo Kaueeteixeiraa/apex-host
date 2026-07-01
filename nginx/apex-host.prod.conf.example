@@ -1,10 +1,11 @@
 limit_req_zone $binary_remote_addr zone=apex_login:10m rate=10r/m;
 limit_req_zone $binary_remote_addr zone=apex_api:10m rate=120r/m;
 
-# DNS esperado para staging/producao:
-# - Painel: A/AAAA host.example.com -> IP da VPS.
-# - Projetos: A/AAAA *.apps.example.com -> IP da VPS.
-# - Validacao: dig +short host.example.com && dig +short qualquer.apps.example.com.
+# DNS esperado para Go Live:
+# - Painel: A/AAAA host.example.com -> IP da VPS. Em dominio real, use host.{BASE_DOMAIN}.
+# - API: preferencialmente /api no mesmo host; api.host.{BASE_DOMAIN} tambem pode ser criado com outro server block.
+# - Projetos: A/AAAA *.example.com -> IP da VPS ou CNAMEs individuais.
+# - Validacao: dig +short host.example.com && dig +short realms.example.com.
 # SSL:
 # - Painel: certbot --nginx -d host.example.com.
 # - Wildcard de projetos: use DNS challenge para *.apps.example.com ou deixe o Apex Host gerar SSL por dominio/projeto.

@@ -17,7 +17,11 @@ def get_or_create_platform_settings(db: Session) -> PlatformSetting:
     settings = PlatformSetting(
         id=1,
         platform_name="Apex Host",
+        company_name="Apex Technologies",
         primary_color="#18b6ff",
+        public_app_url=None,
+        contact_email=None,
+        installation_completed=False,
         allow_registration=True,
         require_account_approval=True,
         default_user_profile="viewer",

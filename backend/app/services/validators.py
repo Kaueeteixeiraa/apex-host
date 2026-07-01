@@ -46,3 +46,16 @@ def validate_command(value: str | None) -> str | None:
     if executable not in get_settings().allowed_commands:
         raise ValueError(f"Command '{executable}' is not allowed")
     return command
+
+
+def validate_output_directory(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    normalized = value.strip().replace("\\", "/").strip("/")
+    if normalized in {"", "."}:
+        return "."
+    if not re.match(r"^[A-Za-z0-9._/-]+$", normalized):
+        raise ValueError("Output directory contains unsupported characters")
+    if normalized.startswith("../") or "/../" in f"/{normalized}/" or normalized.startswith("/"):
+        raise ValueError("Output directory must stay inside the repository")
+    return normalized

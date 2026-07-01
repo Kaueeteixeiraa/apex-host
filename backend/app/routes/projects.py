@@ -47,6 +47,7 @@ def create_project(
         install_command=payload.install_command,
         build_command=payload.build_command,
         start_command=payload.start_command,
+        output_directory=payload.output_directory,
         github_repo_full_name=payload.github_repo_full_name,
         cpu_limit=payload.cpu_limit,
         memory_limit=payload.memory_limit,

@@ -23,6 +23,7 @@ export type Project = {
   install_command: string | null;
   build_command: string | null;
   start_command: string | null;
+  output_directory: string | null;
   github_repo_full_name: string | null;
   github_webhook_id: string | null;
   github_webhook_enabled: boolean;
@@ -120,6 +121,9 @@ export type InfrastructureStatus = {
   deploy_stage?: string;
   deploy_mode: string;
   dry_run: boolean;
+  docker_deploys_enabled: boolean;
+  build_commands_enabled: boolean;
+  base_domain: string | null;
   server: ServerMetric;
   services: Record<string, string>;
   docker: {
@@ -258,6 +262,58 @@ export type ProjectTemplate = {
   icon: string;
   preview: string;
   tags: string[];
+  template_type: string | null;
+  category: string | null;
+  github_url: string | null;
+  branch: string | null;
+  suggested_domain: string | null;
+  is_internal: boolean;
+};
+
+export type ProductionAuditItem = {
+  id: string;
+  label: string;
+  status: "approved" | "attention" | "critical" | string;
+  severity: string;
+  problem: string | null;
+  why_it_matters: string;
+  fix: string;
+};
+
+export type ProductionAudit = {
+  stage: string;
+  score: number;
+  status: "approved" | "attention" | "critical" | string;
+  summary: string;
+  critical_failures: string[];
+  items: ProductionAuditItem[];
+};
+
+export type PublicPlatform = {
+  platform_name: string;
+  company_name: string | null;
+  logo_url: string | null;
+  primary_color: string;
+  primary_domain: string | null;
+  public_app_url: string | null;
+  contact_email: string | null;
+  installation_completed: boolean;
+  needs_setup: boolean;
+  maintenance_mode: boolean;
+  allow_registration: boolean;
+  base_domain: string;
+  environment: string;
+  deploy_stage: string;
+  dry_run: boolean;
+  docker_deploys_enabled: boolean;
+  build_commands_enabled: boolean;
+};
+
+export type SetupStatus = {
+  needs_setup: boolean;
+  has_admin: boolean;
+  installation_completed: boolean;
+  platform_name: string;
 };
 
 export type FrameworkDetection = {
@@ -286,9 +342,14 @@ export type LogAnalysis = {
 export type PlatformSettings = {
   id: number;
   platform_name: string;
+  company_name: string | null;
   logo_url: string | null;
   primary_color: string;
   primary_domain: string | null;
+  public_app_url: string | null;
+  contact_email: string | null;
+  installation_completed: boolean;
+  installation_completed_at: string | null;
   maintenance_mode: boolean;
   allow_registration: boolean;
   require_account_approval: boolean;

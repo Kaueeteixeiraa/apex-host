@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.services.validators import validate_branch, validate_command, validate_domain, validate_slug
+from app.services.validators import validate_branch, validate_command, validate_domain, validate_output_directory, validate_slug
 
 
 class Token(BaseModel):
@@ -65,6 +65,7 @@ class ProjectBase(BaseModel):
     install_command: str | None = Field(default=None, max_length=500)
     build_command: str | None = Field(default=None, max_length=500)
     start_command: str | None = Field(default=None, max_length=500)
+    output_directory: str | None = Field(default=None, max_length=255)
     github_repo_full_name: str | None = Field(default=None, max_length=255)
     cpu_limit: str | None = Field(default=None, max_length=40)
     memory_limit: str | None = Field(default=None, max_length=40)
@@ -93,6 +94,11 @@ class ProjectBase(BaseModel):
     def valid_command(cls, value: str | None) -> str | None:
         return validate_command(value)
 
+    @field_validator("output_directory")
+    @classmethod
+    def valid_output_directory(cls, value: str | None) -> str | None:
+        return validate_output_directory(value)
+
     @field_validator("primary_domain")
     @classmethod
     def valid_primary_domain(cls, value: str | None) -> str | None:
@@ -112,6 +118,7 @@ class ProjectUpdate(BaseModel):
     install_command: str | None = Field(default=None, max_length=500)
     build_command: str | None = Field(default=None, max_length=500)
     start_command: str | None = Field(default=None, max_length=500)
+    output_directory: str | None = Field(default=None, max_length=255)
     github_repo_full_name: str | None = Field(default=None, max_length=255)
     github_webhook_enabled: bool | None = None
     cpu_limit: str | None = Field(default=None, max_length=40)
@@ -135,6 +142,11 @@ class ProjectUpdate(BaseModel):
     def valid_command(cls, value: str | None) -> str | None:
         return validate_command(value)
 
+    @field_validator("output_directory")
+    @classmethod
+    def valid_output_directory(cls, value: str | None) -> str | None:
+        return validate_output_directory(value)
+
     @field_validator("primary_domain")
     @classmethod
     def valid_primary_domain(cls, value: str | None) -> str | None:
@@ -152,6 +164,7 @@ class ProjectRead(BaseModel):
     install_command: str | None
     build_command: str | None
     start_command: str | None
+    output_directory: str | None
     github_repo_full_name: str | None
     github_webhook_id: str | None
     github_webhook_enabled: bool
@@ -490,6 +503,12 @@ class ProjectTemplateRead(BaseModel):
     icon: str
     preview: str
     tags: list[str]
+    template_type: str | None = None
+    category: str | None = None
+    github_url: str | None = None
+    branch: str | None = None
+    suggested_domain: str | None = None
+    is_internal: bool = False
 
 
 class FrameworkDetectionRequest(BaseModel):
@@ -528,9 +547,14 @@ class LogAnalysisRead(BaseModel):
 class PlatformSettingsRead(BaseModel):
     id: int
     platform_name: str
+    company_name: str | None
     logo_url: str | None
     primary_color: str
     primary_domain: str | None
+    public_app_url: str | None
+    contact_email: str | None
+    installation_completed: bool
+    installation_completed_at: datetime | None
     maintenance_mode: bool
     allow_registration: bool
     require_account_approval: bool
@@ -548,9 +572,12 @@ class PlatformSettingsRead(BaseModel):
 
 class PlatformSettingsUpdate(BaseModel):
     platform_name: str | None = Field(default=None, min_length=2, max_length=255)
+    company_name: str | None = Field(default=None, max_length=255)
     logo_url: str | None = Field(default=None, max_length=500)
     primary_color: str | None = Field(default=None, max_length=40)
     primary_domain: str | None = Field(default=None, max_length=255)
+    public_app_url: str | None = Field(default=None, max_length=500)
+    contact_email: str | None = Field(default=None, max_length=255)
     maintenance_mode: bool | None = None
     allow_registration: bool | None = None
     require_account_approval: bool | None = None
@@ -560,6 +587,72 @@ class PlatformSettingsUpdate(BaseModel):
     alert_config: dict[str, Any] | None = None
     backup_config: dict[str, Any] | None = None
     cdn_config: dict[str, Any] | None = None
+
+
+class SetupStatusRead(BaseModel):
+    needs_setup: bool
+    has_admin: bool
+    installation_completed: bool
+    platform_name: str
+
+
+class SetupPlatformRequest(BaseModel):
+    platform_name: str = Field(default="Apex Host", min_length=2, max_length=255)
+    company_name: str = Field(default="Apex Technologies", min_length=2, max_length=255)
+    base_domain: str = Field(min_length=3, max_length=255)
+    public_app_url: str = Field(min_length=8, max_length=500)
+    contact_email: str = Field(min_length=5, max_length=255)
+
+
+class SetupAdminRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=255)
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=12, max_length=128)
+    confirm_password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("confirm_password")
+    @classmethod
+    def setup_passwords_match(cls, value: str, info) -> str:
+        if info.data.get("password") and value != info.data["password"]:
+            raise ValueError("Passwords do not match")
+        return value
+
+    @field_validator("password")
+    @classmethod
+    def setup_strong_password(cls, value: str) -> str:
+        if len(value) < 12:
+            raise ValueError("Password must have at least 12 characters")
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must include a lowercase letter")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must include an uppercase letter")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must include a number")
+        return value
+
+
+class SetupCompleteRequest(BaseModel):
+    platform: SetupPlatformRequest
+    admin: SetupAdminRequest
+
+
+class ProductionAuditItemRead(BaseModel):
+    id: str
+    label: str
+    status: str
+    severity: str
+    problem: str | None = None
+    why_it_matters: str
+    fix: str
+
+
+class ProductionAuditRead(BaseModel):
+    stage: str
+    score: int
+    status: str
+    summary: str
+    critical_failures: list[str]
+    items: list[ProductionAuditItemRead]
 
 
 class UserSessionRead(BaseModel):

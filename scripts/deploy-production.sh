@@ -22,6 +22,10 @@ if [[ "${DRY_RUN:-true}" != "false" || "${DEPLOY_MODE:-}" != "docker" ]]; then
   echo "Staging/production deploy requires DRY_RUN=false and DEPLOY_MODE=docker."
   exit 1
 fi
+if [[ "${ENABLE_DOCKER_DEPLOYS:-false}" != "true" || "${ENABLE_BUILD_COMMANDS:-false}" != "true" ]]; then
+  echo "Go Live requires ENABLE_DOCKER_DEPLOYS=true and ENABLE_BUILD_COMMANDS=true."
+  exit 1
+fi
 
 required_vars=(
   PUBLIC_APP_URL
@@ -125,4 +129,5 @@ echo "- DEPLOY_STAGE=${DEPLOY_STAGE:-staging_vps}"
 echo "- DRY_RUN=${DRY_RUN:-}"
 echo "- DEPLOY_MODE=${DEPLOY_MODE:-}"
 echo "- PUBLIC_APP_URL=${PUBLIC_APP_URL:-}"
+echo "URL final: ${PUBLIC_APP_URL:-configure PUBLIC_APP_URL}"
 echo "Apex Host production stack is up."

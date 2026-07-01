@@ -130,15 +130,18 @@ GITHUB_WEBHOOK_SECRET=...
 
 ## 9. Primeiro projeto e deploy real
 
+Projeto recomendado para o primeiro teste real: Apex Realms. Siga tambem [`docs/deploy-apex-realms.md`](deploy-apex-realms.md), [`docs/staging-vps-checklist.md`](staging-vps-checklist.md) e [`docs/first-real-deploy-checklist.md`](first-real-deploy-checklist.md).
+
 1. Acesse o painel.
 2. Conecte GitHub.
-3. Crie o primeiro projeto.
+3. Clique em `Deploy Apex Realms` ou crie o projeto por `Projeto interno Apex`.
 4. Confirme comandos de install/build/start.
-5. Rode deploy.
-6. Confirme `docker ps`.
-7. Confirme `docker logs apex-host-SLUG`.
-8. Confirme que o Nginx criou rota em `/etc/nginx/project-sites` dentro do container.
-9. Acesse o subdominio.
+5. Configure `realms.{BASE_DOMAIN}` ou outro dominio valido.
+6. Rode deploy.
+7. Confirme `docker ps`.
+8. Confirme `docker logs apex-host-realms`.
+9. Confirme que o Nginx criou rota em `/etc/nginx/project-sites` dentro do container.
+10. Acesse o subdominio.
 
 Com `DRY_RUN=false` e `DEPLOY_MODE=docker`, o deploy clona/puxa o repositorio, executa build, cria container real, atualiza Nginx, roda health check e registra logs no painel.
 

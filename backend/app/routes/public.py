@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Alert, HealthCheck, Project, ServerNode
+from app.models import Alert, HealthCheck, Project, ServerNode, User
 from app.schemas import PublicStatusRead
+from app.core.config import get_settings
 from app.services.monitoring import infrastructure_status
 from app.services.platform import get_or_create_platform_settings
 
@@ -16,12 +17,26 @@ router = APIRouter(prefix="/public", tags=["public"])
 @router.get("/platform")
 def public_platform(db: Session = Depends(get_db)) -> dict:
     settings = get_or_create_platform_settings(db)
+    app_settings = get_settings()
+    infra = infrastructure_status()
     return {
         "platform_name": settings.platform_name,
+        "company_name": settings.company_name,
         "logo_url": settings.logo_url,
         "primary_color": settings.primary_color,
+        "primary_domain": settings.primary_domain,
+        "public_app_url": settings.public_app_url,
+        "contact_email": settings.contact_email,
+        "installation_completed": settings.installation_completed,
+        "needs_setup": db.query(User).filter(User.role == "admin").first() is None,
         "maintenance_mode": settings.maintenance_mode,
         "allow_registration": settings.allow_registration,
+        "base_domain": app_settings.base_domain,
+        "environment": app_settings.environment,
+        "deploy_stage": app_settings.deploy_stage,
+        "dry_run": infra["dry_run"],
+        "docker_deploys_enabled": app_settings.docker_deploys_enabled,
+        "build_commands_enabled": app_settings.build_commands_enabled,
     }
 
 

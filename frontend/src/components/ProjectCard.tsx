@@ -6,6 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 
 export function ProjectCard({ project, onDeploy }: { project: Project; onDeploy?: (project: Project) => void }) {
   const url = project.primary_domain || project.auto_subdomain;
+  const isInternal = project.github_url?.includes("Kaueeteixeiraa/apex-realms") || project.slug === "realms";
 
   return (
     <article className="panel group relative overflow-hidden p-4 hover:-translate-y-1 hover:border-apex-cyan/70">
@@ -20,7 +21,14 @@ export function ProjectCard({ project, onDeploy }: { project: Project; onDeploy?
             {project.branch}
           </div>
         </div>
-        <StatusBadge status={project.status} />
+        <div className="flex flex-col items-end gap-2">
+          {isInternal ? (
+            <span className="rounded-full border border-apex-cyan/30 bg-apex-cyan/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-apex-cyan">
+              Projeto interno
+            </span>
+          ) : null}
+          <StatusBadge status={project.status} />
+        </div>
       </div>
       <div className="mt-4 rounded-md border border-apex-line bg-black/20 p-3">
         <div className="text-xs text-apex-muted">Dominio principal</div>

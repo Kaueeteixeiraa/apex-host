@@ -5,14 +5,15 @@ import { Github, LockKeyhole, Mail, Sparkles, UserPlus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ApexLogo } from "../components/ApexLogo";
 import { FeedbackBanner } from "../components/FeedbackBanner";
+import { api, SetupStatus } from "../lib/api";
 
 type Mode = "login" | "register";
 
 export function Login() {
   const { login, register, user } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
-  const [email, setEmail] = useState("admin@apex.local");
-  const [password, setPassword] = useState("apex-admin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [accountType, setAccountType] = useState<"admin" | "dev" | "viewer">("viewer");
@@ -22,6 +23,11 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [redirect, setRedirect] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
+
+  useEffect(() => {
+    void api<SetupStatus>("/setup/status").then((data) => setNeedsSetup(data.needs_setup)).catch(() => setNeedsSetup(false));
+  }, []);
 
   useEffect(() => {
     if (!loading) return;
@@ -42,6 +48,7 @@ export function Login() {
 
   if (user && !loading) return <Navigate to="/" replace />;
   if (user && redirect) return <Navigate to="/" replace />;
+  if (needsSetup) return <Navigate to="/setup" replace />;
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -52,8 +59,8 @@ export function Login() {
       setPassword("");
       setEmail("");
     } else {
-      setEmail(email || "admin@apex.local");
-      setPassword(password || "apex-admin");
+      setEmail(email || "");
+      setPassword(password || "");
     }
   };
 

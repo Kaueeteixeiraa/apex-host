@@ -16,6 +16,7 @@ export function Deploys() {
   const { projects, selectedId, selectedProject, setSelectedId, loading, error } = useProjectScope(projectId);
   const [deploys, setDeploys] = useState<Deploy[]>([]);
   const [dryRun, setDryRun] = useState(true);
+  const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Record<number, LogAnalysis>>({});
 
@@ -26,7 +27,10 @@ export function Deploys() {
 
   useEffect(() => {
     void loadDeploys();
-    void api<InfrastructureStatus>("/monitor/infrastructure").then((data) => setDryRun(data.dry_run)).catch(() => setDryRun(true));
+    void api<InfrastructureStatus>("/monitor/infrastructure").then((data) => {
+      setInfra(data);
+      setDryRun(data.dry_run);
+    }).catch(() => setDryRun(true));
     const interval = window.setInterval(() => void loadDeploys(), 4000);
     return () => window.clearInterval(interval);
   }, [selectedId]);
@@ -80,6 +84,12 @@ export function Deploys() {
 
       {selectedId ? (
         <>
+          {infra && (!infra.docker_deploys_enabled || !infra.docker.available) ? (
+            <FeedbackBanner
+              type="info"
+              message="Deploy real indisponivel: Docker/DEPLOY_MODE nao esta pronto. Use dry run ou ative DRY_RUN=false, DEPLOY_MODE=docker e ENABLE_DOCKER_DEPLOYS=true na VPS."
+            />
+          ) : null}
           <div className="panel flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <label className="flex items-center gap-2 text-sm text-apex-muted">

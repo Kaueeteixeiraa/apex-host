@@ -13,11 +13,12 @@ import {
   MemoryStick,
   Rocket,
   Settings,
+  ShieldAlert,
   ShieldCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { api, BackupRecord, DashboardStats, Deploy, formatDate, InfrastructureStatus, Project } from "../lib/api";
+import { api, BackupRecord, DashboardStats, Deploy, formatDate, InfrastructureStatus, ProductionAudit, Project } from "../lib/api";
 import { DashboardSkeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
@@ -29,19 +30,22 @@ import { StatusBadge } from "../components/StatusBadge";
 export function Dashboard() {
   const [data, setData] = useState<DashboardStats | null>(null);
   const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
+  const [audit, setAudit] = useState<ProductionAudit | null>(null);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
-    const [dashboard, infraStatus, backupList] = await Promise.all([
+    const [dashboard, infraStatus, backupList, auditData] = await Promise.all([
       api<DashboardStats>("/dashboard"),
       api<InfrastructureStatus>("/monitor/infrastructure"),
-      api<BackupRecord[]>("/backups").catch(() => [])
+      api<BackupRecord[]>("/backups").catch(() => []),
+      api<ProductionAudit>("/production-audit").catch(() => null)
     ]);
     setData(dashboard);
     setInfra(infraStatus);
     setBackups(backupList);
+    setAudit(auditData);
   };
 
   useEffect(() => {
@@ -73,6 +77,12 @@ export function Dashboard() {
       />
 
       {message ? <FeedbackBanner type="success" message={message} /> : null}
+      {audit?.status === "critical" ? (
+        <FeedbackBanner
+          type="error"
+          message={`Go Live inseguro: ${audit.critical_failures.slice(0, 4).join(", ")}${audit.critical_failures.length > 4 ? "..." : ""}. Abra Auditoria de Producao antes de liberar colaboradores.`}
+        />
+      ) : null}
 
       <section className="panel relative overflow-hidden p-5">
         <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-apex-cyan/10 blur-3xl" />
@@ -104,6 +114,37 @@ export function Dashboard() {
         <StatCard title="Nginx" value={infra?.services.nginx || "unknown"} icon={Globe2} detail="Proxy local" />
         <StatCard title="Disco livre" value={`${data.server.disk_free_gb ?? Math.max(data.server.disk_total_gb - data.server.disk_used_gb, 0).toFixed(1)} GB`} icon={HardDrive} detail={`${data.server.disk_percent}% usado`} />
         <StatCard title="SSL proximo" value="0" icon={ShieldCheck} detail="Sem certificados vencendo registrados" />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-4">
+        <GoLiveCard
+          icon={Rocket}
+          title="Go Live"
+          detail="Publicar Apex Host em dominio real"
+          action="Checklist"
+          to="/production-audit"
+        />
+        <GoLiveCard
+          icon={ShieldAlert}
+          title="Auditoria de Producao"
+          detail={audit ? `${audit.score}% pronto` : "Carregar auditoria"}
+          action="Abrir auditoria"
+          to="/production-audit"
+        />
+        <GoLiveCard
+          icon={Globe2}
+          title="Primeiro deploy publico"
+          detail="Docker, Nginx, SSL e health check reais"
+          action="Novo projeto"
+          to="/projects/new?template=apex-realms"
+        />
+        <GoLiveCard
+          icon={Boxes}
+          title="Apex Realms"
+          detail="Projeto interno recomendado"
+          action="Publicar Apex Realms"
+          to="/projects/new?template=apex-realms"
+        />
       </section>
 
       {infra?.dry_run ? (
@@ -139,10 +180,15 @@ export function Dashboard() {
             title="Nenhum projeto hospedado ainda"
             description="A infraestrutura esta pronta para receber o primeiro site interno da Apex."
             action={
-              <Link className="btn-primary" to="/projects/new">
-                <Rocket className="h-4 w-4" />
-                Criar primeiro projeto
-              </Link>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link className="btn-primary" to="/projects/new?template=apex-realms">
+                  <Rocket className="h-4 w-4" />
+                  Publicar Apex Realms
+                </Link>
+                <Link className="btn-secondary" to="/projects/new">
+                  Criar projeto manualmente
+                </Link>
+              </div>
             }
           />
         )}
@@ -203,6 +249,20 @@ export function Dashboard() {
         </div>
       </section>
     </div>
+  );
+}
+
+function GoLiveCard({ icon: Icon, title, detail, action, to }: { icon: LucideIcon; title: string; detail: string; action: string; to: string }) {
+  return (
+    <Link className="panel block p-4 hover:-translate-y-0.5 hover:border-apex-cyan/60" to={to}>
+      <div className="mb-4 flex items-center justify-between">
+        <Icon className="h-5 w-5 text-apex-cyan" />
+        <span className="rounded-full border border-apex-cyan/30 bg-apex-cyan/10 px-2 py-0.5 text-xs text-apex-cyan">Go Live</span>
+      </div>
+      <h2 className="font-semibold text-white">{title}</h2>
+      <p className="muted mt-1 min-h-10">{detail}</p>
+      <div className="mt-4 text-sm font-medium text-apex-cyan">{action}</div>
+    </Link>
   );
 }
 

@@ -122,6 +122,27 @@ PROJECT_TEMPLATES: list[dict[str, Any]] = [
         "preview": "Visual dark premium com azul neon.",
         "tags": ["apex", "brand", "premium"],
     },
+    {
+        "id": "apex-realms",
+        "name": "Apex Realms",
+        "description": "Plataforma de RPG de mesa online da Apex",
+        "stack": "Python, Flask, Gunicorn",
+        "install_command": "pip install -r requirements.txt",
+        "build_command": None,
+        "start_command": "gunicorn app:app --bind 0.0.0.0:5000",
+        "output_directory": None,
+        "internal_port": 5000,
+        "project_type": "flask",
+        "icon": "Dices",
+        "preview": "Projeto interno Apex para validar deploy real com login, campanhas e mesas.",
+        "tags": ["apex", "interno", "rpg"],
+        "template_type": "Projeto interno Apex",
+        "category": "RPG / Plataforma interna",
+        "github_url": "https://github.com/Kaueeteixeiraa/apex-realms.git",
+        "branch": "main",
+        "suggested_domain": "realms.{BASE_DOMAIN}",
+        "is_internal": True,
+    },
 ]
 
 
@@ -144,21 +165,34 @@ def detect_framework(files: list[str], package_json: dict[str, Any] | None = Non
         return _result("Next.js", "nextjs", "npm run build", "npm run start", "npm install", ".next", 3000, "node", 0.9, reasons)
     if has_file("vite.config.js") or has_file("vite.config.ts") or "vite" in deps:
         reasons.append("vite.config ou dependencia vite detectada.")
+        if "react" in deps:
+            reasons.append("dependencia react detectada; servir build estatico em container Nginx.")
         return _result("React + Vite", "react-vite", "npm run build", "npx serve -s dist", "npm install", "dist", 3000, "static", 0.88, reasons)
     if has_file("package.json"):
         reasons.append("package.json encontrado sem framework especifico.")
         return _result("Node.js", "node", None, "npm start", "npm install", None, 3000, "node", 0.7, reasons)
     if has_file("requirements.txt") or has_file("pyproject.toml"):
-        if any("fastapi" in str(value).lower() for value in (package_json or {}).values()) or has_file("app/main.py"):
+        python_markers = " ".join(normalized)
+        package_text = json_like(package_json)
+        if "fastapi" in package_text or has_file("app/main.py") or "fastapi" in python_markers:
             reasons.append("Projeto Python com estrutura comum de FastAPI.")
             return _result("FastAPI", "fastapi", None, "uvicorn app.main:app --host 0.0.0.0 --port 8000", "pip install -r requirements.txt", None, 8000, "python", 0.72, reasons)
+        if has_file("app.py") or "flask" in package_text or "flask" in python_markers:
+            reasons.append("requirements.txt/pyproject.toml com app.py ou Flask detectado.")
+            return _result("Flask", "flask", None, "gunicorn app:app --bind 0.0.0.0:5000", "pip install -r requirements.txt", None, 5000, "python", 0.78, reasons)
         reasons.append("requirements.txt/pyproject.toml detectado.")
-        return _result("Python", "flask", None, "gunicorn app:app --bind 0.0.0.0:5000", "pip install -r requirements.txt", None, 5000, "python", 0.64, reasons)
+        return _result("Python", "python", None, "python app.py", "pip install -r requirements.txt", None, 5000, "python", 0.64, reasons)
     if has_file("index.html"):
         reasons.append("index.html detectado na raiz.")
         return _result("HTML estatico", "static", None, "npx serve -s .", None, ".", 3000, "static", 0.75, reasons)
     reasons.append("Nenhum arquivo conhecido informado; usando configuracao manual.")
     return _result("Manual", "manual", None, None, None, None, 3000, "manual", 0.3, reasons)
+
+
+def json_like(value: dict[str, Any] | None) -> str:
+    if not value:
+        return ""
+    return " ".join(str(item).lower() for item in value.values())
 
 
 def _result(

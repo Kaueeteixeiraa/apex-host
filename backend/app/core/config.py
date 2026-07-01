@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Apex Host"
     environment: str = Field("development", validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"))
-    deploy_stage: str = Field("local", validation_alias=AliasChoices("DEPLOY_STAGE", "APEX_DEPLOY_STAGE"))
+    deploy_stage: str = Field("local", validation_alias=AliasChoices("DEPLOY_STAGE", "APEX_DEPLOY_STAGE", "APP_STAGE"))
     api_prefix: str = "/api"
 
     secret_key: str = "change-me-before-production"
@@ -63,7 +63,8 @@ class Settings(BaseSettings):
     health_check_interval_seconds: int = 60
     default_health_check_timeout_seconds: int = 5
     auto_create_tables: bool = True
-    allowed_command_prefixes: str = "npm,pnpm,yarn,node,python,pip,uvicorn,gunicorn"
+    bootstrap_default_admin: bool = False
+    allowed_command_prefixes: str = "npm,npx,pnpm,yarn,node,python,pip,uvicorn,gunicorn"
 
     model_config = SettingsConfigDict(
         env_file=".env",

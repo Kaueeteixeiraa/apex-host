@@ -41,6 +41,9 @@ export function ProjectDetail() {
           install_command: form.install_command || null,
           build_command: form.build_command || null,
           start_command: form.start_command || null,
+          output_directory: form.output_directory || null,
+          cpu_limit: form.cpu_limit || null,
+          memory_limit: form.memory_limit || null,
           internal_port: form.internal_port,
           primary_domain: form.primary_domain || null
         })
@@ -142,6 +145,18 @@ export function ProjectDetail() {
               value={form.internal_port || 3000}
               onChange={(event) => setForm({ ...form, internal_port: Number(event.target.value) })}
             />
+          </div>
+          <div>
+            <label className="label">Output directory</label>
+            <input className="field" value={form.output_directory || ""} onChange={(event) => setForm({ ...form, output_directory: event.target.value })} />
+          </div>
+          <div>
+            <label className="label">CPU max.</label>
+            <input className="field" value={form.cpu_limit || ""} onChange={(event) => setForm({ ...form, cpu_limit: event.target.value })} placeholder="0.50" />
+          </div>
+          <div>
+            <label className="label">RAM max.</label>
+            <input className="field" value={form.memory_limit || ""} onChange={(event) => setForm({ ...form, memory_limit: event.target.value })} placeholder="512m" />
           </div>
           <div className="md:col-span-2">
             <label className="label">Dominio principal</label>

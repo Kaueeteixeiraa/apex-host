@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.routes import admin, audit, auth, availability, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects, public, templates
+from app.routes import admin, audit, auth, availability, dashboard, deploys, domains, env_vars, github, logs, monitoring, production, projects, public, setup, templates
 from app.services.availability import start_health_monitor
 from app.services.bootstrap import create_tables, ensure_admin_user, ensure_default_node, ensure_platform_settings
 
@@ -39,7 +39,8 @@ def startup() -> None:
         create_tables()
     db = SessionLocal()
     try:
-        ensure_admin_user(db)
+        if settings.bootstrap_default_admin:
+            ensure_admin_user(db)
         ensure_default_node(db)
         ensure_platform_settings(db)
     finally:
@@ -55,6 +56,7 @@ def health() -> dict[str, str]:
 
 
 app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(setup.router, prefix=settings.api_prefix)
 app.include_router(public.router, prefix=settings.api_prefix)
 app.include_router(dashboard.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
@@ -68,3 +70,4 @@ app.include_router(audit.router, prefix=settings.api_prefix)
 app.include_router(availability.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(templates.router, prefix=settings.api_prefix)
+app.include_router(production.router, prefix=settings.api_prefix)

@@ -1,8 +1,31 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, Search, SearchCheck, Settings2, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Atom,
+  Boxes,
+  Dices,
+  FileCode2,
+  FlaskConical,
+  Gauge,
+  Gem,
+  Github,
+  Globe2,
+  KeyRound,
+  LayoutTemplate,
+  Plus,
+  Rocket,
+  Search,
+  SearchCheck,
+  Server,
+  Settings2,
+  Sparkles,
+  Trash2,
+  Triangle
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-import { api, Deploy, Domain, EnvVar, FrameworkDetection, GitHubRepo, Project, ProjectTemplate } from "../lib/api";
+import { api, Deploy, Domain, EnvVar, FrameworkDetection, GitHubRepo, Project, ProjectTemplate, PublicPlatform } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
@@ -18,7 +41,27 @@ const emptyForm = {
   build_command: "",
   start_command: "",
   output_directory: "",
-  internal_port: 3000
+  internal_port: 3000,
+  cpu_limit: "",
+  memory_limit: ""
+};
+
+const templateIcons: Record<string, LucideIcon> = {
+  Atom,
+  Dices,
+  FileCode2,
+  FlaskConical,
+  Gauge,
+  Gem,
+  Server,
+  Sparkles,
+  Triangle
+};
+
+const parseGitHubFullName = (url: string) => {
+  const normalized = url.trim().replace(/\.git$/i, "").replace(/^git@github\.com:/i, "https://github.com/");
+  const match = normalized.match(/github\.com\/([^/]+\/[^/]+)$/i);
+  return match?.[1] || null;
 };
 
 const steps = [
@@ -39,8 +82,10 @@ export function Projects() {
   const [message, setMessage] = useState<string | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-  const [creationMode, setCreationMode] = useState<"github" | "template">("github");
+  const [platform, setPlatform] = useState<PublicPlatform | null>(null);
+  const [creationMode, setCreationMode] = useState<"github" | "template" | "internal">("github");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [autoAppliedTemplate, setAutoAppliedTemplate] = useState("");
   const [detectionFiles, setDetectionFiles] = useState("package.json\nvite.config.ts\nsrc/App.tsx");
   const [detection, setDetection] = useState<FrameworkDetection | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +109,11 @@ export function Projects() {
     });
   }, [projects, projectSearch, statusFilter]);
 
+  const visibleTemplates = useMemo(
+    () => templates.filter((template) => creationMode === "internal" ? template.is_internal : !template.is_internal),
+    [templates, creationMode]
+  );
+
   const load = async () => {
     setProjects(await api<Project[]>("/projects"));
   };
@@ -72,6 +122,7 @@ export function Projects() {
     void load().catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar projetos"));
     void api<GitHubRepo[]>("/github/repos").then(setRepos).catch(() => setRepos([]));
     void api<ProjectTemplate[]>("/templates").then(setTemplates).catch(() => setTemplates([]));
+    void api<PublicPlatform>("/public/platform").then(setPlatform).catch(() => setPlatform(null));
   }, []);
 
   const hasUnsavedProjectForm = isNewRoute && (
@@ -92,20 +143,46 @@ export function Projects() {
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [hasUnsavedProjectForm]);
 
+  const resolveSuggestedDomain = (template: ProjectTemplate) => {
+    if (!template.suggested_domain) return "";
+    return template.suggested_domain.replace("{BASE_DOMAIN}", platform?.base_domain || "apps.example.com");
+  };
+
   const applyTemplate = (template: ProjectTemplate) => {
     setSelectedTemplateId(template.id);
+    const suggestedDomain = resolveSuggestedDomain(template);
     setForm({
       ...form,
       name: form.name || template.name,
+      slug: form.slug || (template.id === "apex-realms" ? "realms" : ""),
+      github_url: template.github_url || form.github_url,
+      branch: template.branch || form.branch || "main",
       project_type: template.project_type,
       install_command: template.install_command || "",
       build_command: template.build_command || "",
       start_command: template.start_command || "",
       output_directory: template.output_directory || "",
-      internal_port: template.internal_port
+      internal_port: template.internal_port,
+      cpu_limit: form.cpu_limit,
+      memory_limit: form.memory_limit
     });
+    if (suggestedDomain) setCustomDomain(suggestedDomain);
+    if (template.id === "apex-realms") {
+      setDetectionFiles("requirements.txt\napp.py\nProcfile\nwsgi.py\ntemplates/landing.html\nstatic/css");
+    }
     setMessage(`Template ${template.name} aplicado.`);
   };
+
+  useEffect(() => {
+    if (!templates.length || autoAppliedTemplate) return;
+    const requestedTemplate = new URLSearchParams(location.search).get("template");
+    if (!requestedTemplate) return;
+    const template = templates.find((item) => item.id === requestedTemplate);
+    if (!template) return;
+    setCreationMode(template.is_internal ? "internal" : "template");
+    applyTemplate(template);
+    setAutoAppliedTemplate(template.id);
+  }, [templates, location.search, autoAppliedTemplate, platform]);
 
   const detectFramework = async () => {
     const files = detectionFiles.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
@@ -121,7 +198,9 @@ export function Projects() {
       build_command: result.build_command || "",
       start_command: result.start_command || "",
       output_directory: result.output_directory || "",
-      internal_port: result.default_port
+      internal_port: result.default_port,
+      cpu_limit: form.cpu_limit,
+      memory_limit: form.memory_limit
     });
   };
 
@@ -142,7 +221,10 @@ export function Projects() {
           install_command: form.install_command || null,
           build_command: form.build_command || null,
           start_command: form.start_command || null,
-          github_repo_full_name: selectedRepo?.full_name || null,
+          output_directory: form.output_directory || null,
+          github_repo_full_name: selectedRepo?.full_name || parseGitHubFullName(form.github_url),
+          cpu_limit: form.cpu_limit || null,
+          memory_limit: form.memory_limit || null,
           internal_port: form.internal_port
         })
       });
@@ -244,7 +326,7 @@ export function Projects() {
         <div className="p-4">
           {step === 1 ? (
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-3">
                 <button
                   type="button"
                   className={`rounded-lg border p-4 text-left transition ${creationMode === "github" ? "border-apex-cyan bg-apex-cyan/10 shadow-glow" : "border-apex-line bg-black/20"}`}
@@ -262,6 +344,15 @@ export function Projects() {
                   <LayoutTemplate className="mb-2 h-5 w-5 text-apex-cyan" />
                   <div className="font-medium text-white">Criar usando template</div>
                   <p className="mt-1 text-sm text-apex-muted">Comece com stack, comandos e porta sugeridos.</p>
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-lg border p-4 text-left transition ${creationMode === "internal" ? "border-apex-cyan bg-apex-cyan/10 shadow-glow" : "border-apex-line bg-black/20"}`}
+                  onClick={() => setCreationMode("internal")}
+                >
+                  <Dices className="mb-2 h-5 w-5 text-apex-cyan" />
+                  <div className="font-medium text-white">Projeto interno Apex</div>
+                  <p className="mt-1 text-sm text-apex-muted">Publique projetos oficiais da Apex, comecando pelo Apex Realms.</p>
                 </button>
               </div>
 
@@ -308,7 +399,10 @@ export function Projects() {
                 </div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {templates.map((template) => (
+                  {visibleTemplates.map((template) => {
+                    const Icon = templateIcons[template.icon] || LayoutTemplate;
+                    const isApexRealms = template.id === "apex-realms";
+                    return (
                     <button
                       key={template.id}
                       type="button"
@@ -317,16 +411,33 @@ export function Projects() {
                       }`}
                       onClick={() => applyTemplate(template)}
                     >
-                      <div className="mb-2 text-2xl">{template.icon}</div>
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className="grid h-10 w-10 place-items-center rounded-lg border border-apex-cyan/30 bg-apex-cyan/10 text-apex-cyan">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        {template.is_internal ? (
+                          <span className="rounded-full border border-apex-cyan/30 bg-apex-cyan/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-apex-cyan">
+                            Projeto interno
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="font-medium text-white">{template.name}</div>
+                      {template.category ? <div className="mt-1 text-xs text-apex-cyan">{template.category}</div> : null}
                       <p className="mt-1 line-clamp-2 text-sm text-apex-muted">{template.description}</p>
+                      {template.github_url ? <p className="mt-2 truncate text-xs text-apex-muted">{template.github_url}</p> : null}
                       <div className="mt-3 flex flex-wrap gap-1">
                         {template.tags.slice(0, 3).map((tag) => (
                           <span key={tag} className="rounded-full border border-apex-cyan/30 bg-apex-cyan/10 px-2 py-0.5 text-xs text-apex-cyan">{tag}</span>
                         ))}
                       </div>
+                      {isApexRealms ? (
+                        <div className="mt-4 rounded-md bg-apex-cyan px-3 py-2 text-center text-sm font-semibold text-black shadow-glow">
+                          Deploy Apex Realms
+                        </div>
+                      ) : null}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -369,6 +480,14 @@ export function Projects() {
               <label>
                 <span className="label">Porta interna</span>
                 <input className="field" type="number" value={form.internal_port} onChange={(event) => setForm({ ...form, internal_port: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span className="label">CPU max.</span>
+                <input className="field" value={form.cpu_limit} onChange={(event) => setForm({ ...form, cpu_limit: event.target.value })} placeholder="0.50 ou vazio" />
+              </label>
+              <label>
+                <span className="label">RAM max.</span>
+                <input className="field" value={form.memory_limit} onChange={(event) => setForm({ ...form, memory_limit: event.target.value })} placeholder="512m ou 1g" />
               </label>
               <label className="lg:col-span-2">
                 <span className="label">Output directory</span>
@@ -441,11 +560,16 @@ export function Projects() {
             <div className="grid gap-4 lg:grid-cols-2">
               <label>
                 <span className="label">Dominio customizado opcional</span>
-                <input className="field" value={customDomain} onChange={(event) => setCustomDomain(event.target.value)} placeholder="app.apextechnologies.com.br" />
+                <input className="field" value={customDomain} onChange={(event) => setCustomDomain(event.target.value)} placeholder="realms.apps.seudominio.com" />
               </label>
               <div className="rounded-lg border border-apex-line bg-black/20 p-4">
                 <div className="section-title mb-2">DNS</div>
                 <p className="muted">Apex Host gera um subdominio interno automatico. Para dominio customizado, aponte CNAME para o host da plataforma ou A record para o IP da VPS.</p>
+                {selectedTemplateId === "apex-realms" ? (
+                  <div className="mt-3 rounded-md border border-apex-cyan/30 bg-apex-cyan/10 p-3 text-sm text-apex-text">
+                    Dominio sugerido para Apex Realms: <strong>{customDomain || `realms.${platform?.base_domain || "apps.example.com"}`}</strong>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -454,10 +578,16 @@ export function Projects() {
             <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
               <div className="terminal p-4">
                 <div className="text-apex-cyan">$ apex deploy --project {form.slug || form.name || "novo-projeto"}</div>
-                <div className="mt-2 text-apex-muted">1. Clonar repositorio</div>
-                <div className="text-apex-muted">2. Validar comandos permitidos</div>
-                <div className="text-apex-muted">3. Aplicar variaveis criptografadas</div>
-                <div className="text-apex-muted">4. Executar conforme o modo do ambiente</div>
+                <div className="mt-2 text-apex-muted">1. Preparando ambiente</div>
+                <div className="text-apex-muted">2. Clonando repositorio</div>
+                <div className="text-apex-muted">3. Detectando stack</div>
+                <div className="text-apex-muted">4. Instalando dependencias</div>
+                <div className="text-apex-muted">5. Rodando build</div>
+                <div className="text-apex-muted">6. Criando container</div>
+                <div className="text-apex-muted">7. Configurando Nginx</div>
+                <div className="text-apex-muted">8. Gerando SSL</div>
+                <div className="text-apex-muted">9. Rodando health check</div>
+                <div className="text-apex-muted">10. Publicando projeto</div>
               </div>
               <div className="rounded-lg border border-apex-line bg-black/20 p-4">
                 <label className="flex items-center gap-2 text-sm text-apex-muted">
@@ -528,12 +658,18 @@ export function Projects() {
         <EmptyState
           icon={Boxes}
           title="Nenhum projeto hospedado ainda"
-          description="Crie seu primeiro projeto interno da Apex e faca o deploy em ambiente seguro."
+          description="Comece validando o Apex Host com um projeto interno da Apex."
           action={
-            <Link className="btn-primary" to="/projects/new">
-              <Plus className="h-4 w-4" />
-              Criar primeiro projeto
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link className="btn-primary" to="/projects/new?template=apex-realms">
+                <Dices className="h-4 w-4" />
+                Hospedar Apex Realms
+              </Link>
+              <Link className="btn-secondary" to="/projects/new">
+                <Plus className="h-4 w-4" />
+                Criar projeto manualmente
+              </Link>
+            </div>
           }
         />
       ) : null}

@@ -14,6 +14,7 @@ import {
   Server,
   Settings,
   Shield,
+  ShieldAlert,
   TerminalSquare,
   X
 } from "lucide-react";
@@ -32,6 +33,7 @@ const nav = [
   { section: "Operacao", to: "/logs", label: "Logs", icon: ScrollText },
   { section: "Infraestrutura", to: "/monitoring", label: "Monitoramento", icon: Activity },
   { section: "Infraestrutura", to: "/infrastructure", label: "Infraestrutura", icon: Server },
+  { section: "Infraestrutura", to: "/production-audit", label: "Auditoria de Producao", icon: ShieldAlert },
   { section: "Infraestrutura", to: "/backups", label: "Backups", icon: DatabaseBackup },
   { section: "Administracao", to: "/help", label: "Ajuda", icon: BookOpen },
   { section: "Administracao", to: "/status", label: "Status", icon: RadioTower },
@@ -111,6 +113,10 @@ export function AppLayout() {
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
               <HealthPill status={infra?.overall_status || "stable"} />
+              <NavLink className="btn-secondary hidden lg:inline-flex" to="/production-audit">
+                <ShieldAlert className="h-4 w-4" />
+                Auditoria
+              </NavLink>
               <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block" title="Rodando no ambiente local desta maquina.">
                 {labelEnvironment(infra)}
               </div>
@@ -209,6 +215,7 @@ function labelEnvironment(infra?: InfrastructureStatus | null) {
   if (infra?.dry_run) return "Dry Run";
   const stage = (infra?.deploy_stage || "").toLowerCase().replace("_", "-");
   if (stage === "staging-vps" || stage === "staging") return "Staging VPS";
+  if (stage === "go-live") return "Producao";
   if (stage === "production" || infra?.environment === "production") return "Producao";
   if (!infra?.environment || infra.environment === "development") return "Local";
   return infra.environment;
