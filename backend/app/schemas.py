@@ -48,7 +48,7 @@ class UserRead(BaseModel):
     email: str
     full_name: str
     role: str
-    plan: str
+    access_profile: str
     is_active: bool
     limits: dict[str, Any]
     created_at: datetime
@@ -460,7 +460,7 @@ class ConfirmAction(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern=r"^(admin|dev|viewer)$")
-    plan: str | None = Field(default=None, max_length=80)
+    access_profile: str | None = Field(default=None, max_length=80)
     is_active: bool | None = None
     limits: dict[str, Any] | None = None
 
@@ -545,7 +545,7 @@ class PlatformSettingsRead(BaseModel):
     maintenance_mode: bool
     allow_registration: bool
     require_account_approval: bool
-    default_user_plan: str
+    default_user_profile: str
     default_user_limits: dict[str, Any]
     smtp_config: dict[str, Any]
     alert_config: dict[str, Any]
@@ -565,7 +565,7 @@ class PlatformSettingsUpdate(BaseModel):
     maintenance_mode: bool | None = None
     allow_registration: bool | None = None
     require_account_approval: bool | None = None
-    default_user_plan: str | None = Field(default=None, max_length=80)
+    default_user_profile: str | None = Field(default=None, max_length=80)
     default_user_limits: dict[str, Any] | None = None
     smtp_config: dict[str, Any] | None = None
     alert_config: dict[str, Any] | None = None

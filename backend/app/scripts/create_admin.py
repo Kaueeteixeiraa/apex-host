@@ -23,7 +23,7 @@ def main() -> None:
         user.full_name = args.name
         user.hashed_password = get_password_hash(args.password)
         user.role = "admin"
-        user.plan = "admin_internal"
+        user.access_profile = "admin_internal"
         user.is_active = True
         user.limits = limits_for_profile("admin_internal")
         db.commit()

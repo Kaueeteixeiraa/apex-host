@@ -385,21 +385,21 @@ npm run build
 
 ### Fase 1
 
-- MVP de hospedagem.
-- Projetos, deploys dry run e painel inicial.
+- MVP private hosting.
+- Projetos internos, deploys dry run e painel inicial.
 
 ### Fase 2
 
-- Visual premium, deploys, logs, GitHub, Docker, SSL, envs criptografadas e auditoria.
+- Visual premium, login, cadastro, deploys, logs e GitHub.
 
 ### Fase 3
 
-- Alta disponibilidade, health check, fallback, rollback, backups, nodes e recuperacao automatica.
+- Producao VPS, backups, rollback, health checks e monitoramento.
 
 ### Fase 4
 
-- Admin, infraestrutura, backups, templates, deteccao de framework, status publico, IA preparada para logs e modo manutencao.
+- Admin, infraestrutura, public status, templates e IA preparada.
 
 ### Fase 5
 
-- Segunda VPS, agente real por servidor, WebSocket/SSE e orquestracao multi-node completa.
+- Multiple servers, Apex Cloud, storage e real HA.

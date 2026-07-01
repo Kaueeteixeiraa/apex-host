@@ -39,7 +39,7 @@ def create_deploy(
         since = datetime.utcnow() - timedelta(days=1)
         recent_count = db.query(Deploy).join(Project).filter(Project.owner_id == user.id, Deploy.started_at >= since).count()
         if recent_count >= int(deploy_limit):
-            raise HTTPException(status_code=403, detail="Daily deploy limit reached for your current plan")
+            raise HTTPException(status_code=403, detail="Daily deploy limit reached for your internal access profile")
     dry_run = payload.dry_run if payload.dry_run is not None else not get_settings().enable_docker_deploys
     deploy = Deploy(project_id=project.id, branch=project.branch, dry_run=dry_run, status="queued", deploy_type="manual")
     db.add(deploy)

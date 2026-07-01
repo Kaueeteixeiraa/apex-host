@@ -17,8 +17,8 @@ def ensure_admin_user(db: Session) -> User:
     settings = get_settings()
     admin = db.query(User).filter(User.email == settings.admin_email).first()
     if admin:
-        if admin.role == "admin" and admin.plan != "admin_internal":
-            admin.plan = "admin_internal"
+        if admin.role == "admin" and admin.access_profile != "admin_internal":
+            admin.access_profile = "admin_internal"
             admin.limits = limits_for_profile("admin_internal")
             db.commit()
             db.refresh(admin)
@@ -29,7 +29,7 @@ def ensure_admin_user(db: Session) -> User:
         full_name=settings.admin_name,
         hashed_password=get_password_hash(settings.admin_password),
         role="admin",
-        plan="admin_internal",
+        access_profile="admin_internal",
         limits=limits_for_profile("admin_internal"),
     )
     db.add(admin)

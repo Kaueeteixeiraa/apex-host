@@ -53,7 +53,7 @@ export function Admin() {
       maintenance_mode: platform.maintenance_mode,
       allow_registration: platform.allow_registration,
       require_account_approval: platform.require_account_approval,
-      default_user_plan: platform.default_user_plan,
+      default_user_profile: platform.default_user_profile,
       smtp_config: platform.smtp_config,
       alert_config: platform.alert_config,
       backup_config: platform.backup_config,
@@ -122,7 +122,7 @@ export function Admin() {
                       </select>
                     </td>
                     <td className="p-2">
-                      <select className="field min-w-32" value={item.plan} onChange={(event) => void updateUser(item, { plan: event.target.value })}>
+                      <select className="field min-w-32" value={item.access_profile} onChange={(event) => void updateUser(item, { access_profile: event.target.value } as Partial<User>)}>
                         <option value="viewer">viewer</option>
                         <option value="dev">dev</option>
                         <option value="admin_internal">admin_internal</option>
@@ -178,7 +178,7 @@ export function Admin() {
               </div>
               <label>
                 <span className="label">Perfil padrao</span>
-                <select className="field" value={platform.default_user_plan} onChange={(event) => setPlatform({ ...platform, default_user_plan: event.target.value })}>
+                <select className="field" value={platform.default_user_profile} onChange={(event) => setPlatform({ ...platform, default_user_profile: event.target.value })}>
                   <option value="viewer">viewer</option>
                   <option value="dev">dev</option>
                 </select>

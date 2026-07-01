@@ -53,7 +53,7 @@ def analyze_deploy_logs(deploy: Deploy | None, logs: list[LogEntry]) -> dict:
         severity = "medium"
     elif "timeout" in matches:
         cause = "O build ou health check excedeu o tempo limite."
-        fix = "Otimize o build, aumente recursos do plano ou ajuste o endpoint de health check para responder rapidamente."
+        fix = "Otimize o build, aumente recursos do perfil interno ou ajuste o endpoint de health check para responder rapidamente."
         severity = "medium"
     elif "docker" in matches:
         cause = "Falha relacionada ao Docker/container."

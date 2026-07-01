@@ -17,6 +17,7 @@ import { ProjectDetail } from "./pages/ProjectDetail";
 import { Projects } from "./pages/Projects";
 import { PublicStatus } from "./pages/PublicStatus";
 import { Settings } from "./pages/Settings";
+import { ServerError } from "./pages/ServerError";
 import { Availability } from "./pages/Availability";
 import { Admin } from "./pages/Admin";
 
@@ -25,6 +26,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/status" element={<PublicStatus />} />
+      <Route path="/500" element={<ServerError />} />
       <Route
         element={
           <ProtectedRoute>

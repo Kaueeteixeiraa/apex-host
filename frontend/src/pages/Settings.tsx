@@ -60,7 +60,7 @@ export function Settings() {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-apex-muted">Plano</dt>
-              <dd className="text-white">{user?.plan}</dd>
+              <dd className="text-white">{user?.access_profile}</dd>
             </div>
           </dl>
         </div>
@@ -90,7 +90,7 @@ export function Settings() {
               <code>NGINX_SITES_DIR</code> faz o backend escrever arquivos de proxy por projeto.
             </p>
             <p>
-              <code>GITHUB_WEBHOOK_SECRET</code> valida webhooks com assinatura HMAC.
+              <code>GITHUB_WEBHOOK_SECRET</code> valida webhooks via HMAC.
             </p>
           </div>
         </div>
@@ -132,12 +132,12 @@ export function Settings() {
           </div>
         </div>
         <div className="panel p-4">
-          <h2 className="mb-3 font-semibold text-white">Limites futuros</h2>
+          <h2 className="mb-3 font-semibold text-white">Limites internos</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {["Projetos", "Deploys", "RAM", "Storage", "Dominios"].map((item) => (
               <div key={item} className="rounded-md border border-apex-line p-3">
                 <div className="text-xs uppercase tracking-[0.12em] text-apex-muted">{item}</div>
-                <div className="mt-2 text-white">Controlado por plano</div>
+                <div className="mt-2 text-white">Controlado por perfil interno</div>
               </div>
             ))}
           </div>

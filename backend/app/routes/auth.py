@@ -48,18 +48,18 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
 
     requested_role = payload.account_type
     role = requested_role
-    plan = "dev" if requested_role == "dev" else "viewer"
+    access_profile = "dev" if requested_role == "dev" else "viewer"
     is_active = True
-    limits = limits_for_profile(plan) | {"requested_role": requested_role, "approval_required": not is_active}
+    limits = limits_for_profile(access_profile) | {"requested_role": requested_role, "approval_required": not is_active}
     if requested_role == "admin":
         if settings.admin_signup_code and payload.admin_signup_code == settings.admin_signup_code:
             role = "admin"
-            plan = "admin_internal"
+            access_profile = "admin_internal"
             is_active = True
             limits = limits_for_profile("admin_internal") | {"requested_role": requested_role, "approval_required": False}
         else:
             role = "viewer"
-            plan = "pending_approval"
+            access_profile = "pending_approval"
             is_active = False
             limits = limits_for_profile("pending_approval") | {"requested_role": requested_role, "approval_required": True}
 
@@ -68,7 +68,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
         full_name=payload.full_name.strip(),
         hashed_password=get_password_hash(payload.password),
         role=role,
-        plan=plan,
+        access_profile=access_profile,
         is_active=is_active,
         limits=limits,
     )

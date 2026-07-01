@@ -7,12 +7,15 @@ import {
   BookOpen,
   LayoutDashboard,
   LogOut,
+  Menu,
+  Plus,
   RadioTower,
   ScrollText,
   Server,
   Settings,
   Shield,
-  TerminalSquare
+  TerminalSquare,
+  X
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -22,24 +25,26 @@ import { api, InfrastructureStatus } from "../lib/api";
 import { ApexLogo } from "./ApexLogo";
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/projects", label: "Projetos", icon: Boxes },
-  { to: "/domains", label: "Dominios", icon: Globe2 },
-  { to: "/deploys", label: "Deploys", icon: TerminalSquare },
-  { to: "/logs", label: "Logs", icon: ScrollText },
-  { to: "/monitoring", label: "Monitoramento", icon: Activity },
-  { to: "/infrastructure", label: "Infraestrutura", icon: Server },
-  { to: "/backups", label: "Backups", icon: DatabaseBackup },
-  { to: "/help", label: "Ajuda", icon: BookOpen },
-  { to: "/status", label: "Status", icon: RadioTower },
-  { to: "/settings", label: "Configuracoes", icon: Settings },
-  { to: "/admin", label: "Admin", icon: Shield, adminOnly: true }
+  { section: "Operacao", to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { section: "Operacao", to: "/projects", label: "Projetos", icon: Boxes },
+  { section: "Operacao", to: "/domains", label: "Dominios", icon: Globe2 },
+  { section: "Operacao", to: "/deploys", label: "Deploys", icon: TerminalSquare },
+  { section: "Operacao", to: "/logs", label: "Logs", icon: ScrollText },
+  { section: "Infraestrutura", to: "/monitoring", label: "Monitoramento", icon: Activity },
+  { section: "Infraestrutura", to: "/infrastructure", label: "Infraestrutura", icon: Server },
+  { section: "Infraestrutura", to: "/backups", label: "Backups", icon: DatabaseBackup },
+  { section: "Administracao", to: "/help", label: "Ajuda", icon: BookOpen },
+  { section: "Administracao", to: "/status", label: "Status", icon: RadioTower },
+  { section: "Administracao", to: "/settings", label: "Configuracoes", icon: Settings },
+  { section: "Administracao", to: "/admin", label: "Admin", icon: Shield, adminOnly: true }
 ];
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const [maintenance, setMaintenance] = useState(false);
   const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     void api<{ maintenance_mode: boolean }>("/public/platform")
@@ -73,59 +78,46 @@ export function AppLayout() {
 
   return (
     <div className="apex-grid min-h-screen bg-apex-bg">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-apex-line/80 bg-[#020713]/90 p-4 shadow-glow backdrop-blur-xl lg:block">
-        <div className="mb-8 flex items-center gap-3">
-          <ApexLogo className="h-11 w-11" />
-          <div>
-            <div className="font-semibold text-white">Apex Host</div>
-            <div className="text-xs text-apex-muted">Infraestrutura privada Apex</div>
-          </div>
-        </div>
-
-        <nav className="space-y-1">
-          {visibleNav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
-                    isActive
-                      ? "border border-apex-cyan/50 bg-apex-cyan/10 text-white shadow-glow"
-                      : "border border-transparent text-apex-muted hover:border-apex-line hover:bg-white/5 hover:text-white"
-                  }`
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
+      {drawerOpen ? <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setDrawerOpen(false)} /> : null}
+      <aside className={`${drawerOpen ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-40 w-72 border-r border-apex-line/80 bg-[#020713]/95 p-4 shadow-glow backdrop-blur-xl transition-transform lg:hidden`}>
+        <SidebarContent visibleNav={visibleNav} collapsed={false} onNavigate={() => setDrawerOpen(false)} onToggle={() => setDrawerOpen(false)} mobile />
       </aside>
 
-      <div className="lg:pl-64">
+      <aside className={`fixed inset-y-0 left-0 z-20 hidden border-r border-apex-line/80 bg-[#020713]/90 p-4 shadow-glow backdrop-blur-xl transition-all lg:block ${collapsed ? "w-20" : "w-64"}`}>
+        <SidebarContent visibleNav={visibleNav} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+      </aside>
+
+      <div className={collapsed ? "lg:pl-20" : "lg:pl-64"}>
         <header className="sticky top-0 z-10 border-b border-apex-line/80 bg-apex-bg/82 backdrop-blur-xl">
-          <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+          <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
+              <button className="btn-secondary p-2 lg:hidden" onClick={() => setDrawerOpen(true)} title="Abrir menu">
+                <Menu className="h-4 w-4" />
+              </button>
               <ApexLogo className="h-9 w-9 lg:hidden" />
               <div>
                 <div className="text-sm font-medium text-white">Apex Technologies</div>
                 <div className="text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <HealthPill status={infra?.overall_status || "stable"} />
               <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block">
                 {labelEnvironment(infra?.environment)}
               </div>
               {infra?.dry_run ? (
-                <div className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-100">
+                <div className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-100" title="Deploys reais com Docker estao desativados neste ambiente.">
                   DRY RUN ATIVO
                 </div>
               ) : null}
+              <NavLink className="btn-secondary hidden sm:inline-flex" to="/logs">
+                <ScrollText className="h-4 w-4" />
+                Logs
+              </NavLink>
+              <NavLink className="btn-primary hidden sm:inline-flex" to="/projects">
+                <Plus className="h-4 w-4" />
+                Novo projeto
+              </NavLink>
               <div className="hidden items-center gap-2 rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted sm:flex">
                 <Gauge className="h-3.5 w-3.5 text-apex-cyan" />
                 {user?.email}
@@ -136,32 +128,73 @@ export function AppLayout() {
               </button>
             </div>
           </div>
-          <nav className="flex gap-2 overflow-x-auto border-t border-apex-line px-4 py-2 lg:hidden">
-            {visibleNav.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    `flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs ${
-                      isActive ? "border border-apex-cyan/40 bg-apex-cyan/10 text-white" : "text-apex-muted"
-                    }`
-                  }
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </nav>
         </header>
         <main className="dashboard-enter mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <Outlet />
         </main>
       </div>
     </div>
+  );
+}
+
+function SidebarContent({
+  visibleNav,
+  collapsed,
+  mobile,
+  onNavigate,
+  onToggle
+}: {
+  visibleNav: typeof nav;
+  collapsed: boolean;
+  mobile?: boolean;
+  onNavigate?: () => void;
+  onToggle: () => void;
+}) {
+  let lastSection = "";
+  return (
+    <>
+      <div className={`mb-8 flex items-center ${collapsed ? "justify-center" : "justify-between gap-3"}`}>
+        <div className="flex items-center gap-3">
+          <ApexLogo className="h-11 w-11" />
+          {!collapsed ? <div>
+            <div className="font-semibold text-white">Apex Host</div>
+            <div className="text-xs text-apex-muted">Infraestrutura privada Apex</div>
+          </div> : null}
+        </div>
+        <button className="btn-secondary p-2" onClick={onToggle} title={mobile ? "Fechar menu" : "Recolher menu"}>
+          {mobile ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+      </div>
+
+      <nav className="space-y-1">
+        {visibleNav.map((item) => {
+          const Icon = item.icon;
+          const showSection = item.section !== lastSection;
+          lastSection = item.section;
+          return (
+            <div key={item.to}>
+              {showSection && !collapsed ? <div className="mb-2 mt-5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-apex-muted/70">{item.section}</div> : null}
+              <NavLink
+                to={item.to}
+                end={item.to === "/"}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `flex items-center ${collapsed ? "justify-center" : "gap-3"} rounded-md border px-3 py-2 text-sm transition duration-200 ${
+                    isActive
+                      ? "border-apex-cyan/50 bg-apex-cyan/10 text-white shadow-glow"
+                      : "border-transparent text-apex-muted hover:border-apex-line hover:bg-white/5 hover:text-white"
+                  }`
+                }
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon className="h-4 w-4" />
+                {!collapsed ? item.label : null}
+              </NavLink>
+            </div>
+          );
+        })}
+      </nav>
+    </>
   );
 }
 

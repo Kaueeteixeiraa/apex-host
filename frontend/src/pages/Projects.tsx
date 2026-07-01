@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, SearchCheck, Settings2, Trash2 } from "lucide-react";
+import { Boxes, Github, Globe2, KeyRound, LayoutTemplate, Plus, Rocket, Search, SearchCheck, Settings2, Trash2 } from "lucide-react";
 
 import { api, Deploy, Domain, EnvVar, FrameworkDetection, GitHubRepo, Project, ProjectTemplate } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
@@ -44,11 +44,22 @@ export function Projects() {
   const [envRows, setEnvRows] = useState([{ key: "", value: "", is_secret: true }]);
   const [customDomain, setCustomDomain] = useState("");
   const [triggerDeploy, setTriggerDeploy] = useState(true);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const selectedRepo = useMemo(
     () => repos.find((repo) => repo.clone_url === form.github_url),
     [repos, form.github_url]
   );
+
+  const filteredProjects = useMemo(() => {
+    const search = projectSearch.toLowerCase().trim();
+    return projects.filter((project) => {
+      const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+      const matchesSearch = !search || `${project.name} ${project.slug} ${project.github_url || ""} ${project.auto_subdomain || ""}`.toLowerCase().includes(search);
+      return matchesStatus && matchesSearch;
+    });
+  }, [projects, projectSearch, statusFilter]);
 
   const load = async () => {
     setProjects(await api<Project[]>("/projects"));
@@ -166,9 +177,9 @@ export function Projects() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Projects"
+        eyebrow="Projetos Apex"
         title="Projetos"
-        description="Crie projetos em um fluxo guiado, conecte GitHub, configure build, envs, dominios e deploy inicial."
+        description="Crie projetos internos, conecte GitHub, configure build, envs, dominios e deploy inicial em dry run seguro."
         icon={Boxes}
       />
 
@@ -444,23 +455,42 @@ export function Projects() {
 
       {projects.length > 0 ? (
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-semibold text-white">Projetos cadastrados</h2>
-            <span className="text-sm text-apex-muted">{projects.length} projetos</span>
+          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="font-semibold text-white">Projetos hospedados</h2>
+              <p className="text-sm text-apex-muted">{filteredProjects.length} de {projects.length} projetos visiveis</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative min-w-64">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-apex-muted" />
+                <input className="field pl-9" value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} placeholder="Buscar projeto, dominio ou repo" />
+              </div>
+              <select className="field sm:w-44" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="all">Todos</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+                <option value="building">Deployando</option>
+                <option value="error">Com erro</option>
+              </select>
+            </div>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => (
+          {filteredProjects.length > 0 ? (
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              {filteredProjects.map((project) => (
               <div key={project.id} className="relative">
                 <ProjectCard project={project} onDeploy={(item) => void quickDeploy(item)} />
                 <button className="absolute right-3 top-14 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-red-200 hover:bg-red-500/20" onClick={() => void remove(project.id)}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon={SearchCheck} title="Nenhum projeto encontrado" description="Ajuste a busca ou o filtro de status para ver outros projetos hospedados." />
+          )}
         </section>
       ) : (
-        <EmptyState icon={Boxes} title="Nenhum projeto cadastrado" description="Use o wizard acima para criar seu primeiro deploy controlado." />
+        <EmptyState icon={Boxes} title="Nenhum projeto hospedado ainda" description="Crie seu primeiro projeto interno da Apex para iniciar um deploy." action={<button className="btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Criar primeiro projeto</button>} />
       )}
     </div>
   );

@@ -50,7 +50,7 @@ def create_domain(
     if user.role != "admin" and domain_limit is not None:
         domain_count = db.query(Domain).filter(Domain.project_id == project_id).count()
         if domain_count >= int(domain_limit):
-            raise HTTPException(status_code=403, detail="Custom domain limit reached for your current plan")
+            raise HTTPException(status_code=403, detail="Custom domain limit reached for your internal access profile")
     if payload.is_primary:
         db.query(Domain).filter(Domain.project_id == project_id).update({"is_primary": False})
         project.primary_domain = hostname

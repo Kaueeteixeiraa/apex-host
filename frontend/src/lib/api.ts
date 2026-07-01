@@ -6,7 +6,7 @@ export type User = {
   email: string;
   full_name: string;
   role: string;
-  plan: string;
+  access_profile: string;
   is_active: boolean;
   limits: Record<string, unknown>;
   created_at: string;
@@ -291,7 +291,7 @@ export type PlatformSettings = {
   maintenance_mode: boolean;
   allow_registration: boolean;
   require_account_approval: boolean;
-  default_user_plan: string;
+  default_user_profile: string;
   default_user_limits: Record<string, unknown>;
   smtp_config: Record<string, unknown>;
   alert_config: Record<string, unknown>;

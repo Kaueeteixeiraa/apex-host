@@ -66,8 +66,8 @@ def update_user(
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
     data = payload.model_dump(exclude_unset=True)
-    if "plan" in data and data["plan"] and "limits" not in data:
-        data["limits"] = limits_for_profile(data["plan"])
+    if "access_profile" in data and data["access_profile"] and "limits" not in data:
+        data["limits"] = limits_for_profile(data["access_profile"])
     if target.id == admin.id and data.get("is_active") is False:
         raise HTTPException(status_code=409, detail="You cannot block your own admin account")
     for key, value in data.items():
