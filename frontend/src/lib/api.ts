@@ -96,6 +96,8 @@ export type ServerMetric = {
   disk_percent: number;
   disk_used_gb: number;
   disk_total_gb: number;
+  disk_free_gb?: number;
+  uptime_seconds?: number;
 };
 
 export type DashboardStats = {
@@ -110,6 +112,21 @@ export type DashboardStats = {
   recent_deploys: Deploy[];
   recent_logs: LogEntry[];
   recent_projects: Project[];
+};
+
+export type InfrastructureStatus = {
+  overall_status: "stable" | "attention" | "critical" | string;
+  environment: string;
+  deploy_mode: string;
+  dry_run: boolean;
+  server: ServerMetric;
+  services: Record<string, string>;
+  docker: {
+    available: boolean;
+    active_containers: number;
+    containers: string[];
+  };
+  alerts: Alert[];
 };
 
 export type GitHubRepo = {
@@ -226,17 +243,6 @@ export type AvailabilitySummary = {
   ha_warning: string | null;
 };
 
-export type Plan = {
-  id: string;
-  name: string;
-  description: string;
-  audience: string;
-  price_label: string;
-  limits: Record<string, unknown>;
-  features: string[];
-  highlighted: boolean;
-};
-
 export type ProjectTemplate = {
   id: string;
   name: string;
@@ -313,28 +319,6 @@ export type AdminOverview = {
   audit_logs: AuditLog[];
   nodes: ServerNode[];
   recent_errors: LogEntry[];
-};
-
-export type SupportMessage = {
-  id: number;
-  ticket_id: number;
-  user_id: number;
-  body: string;
-  is_admin_reply: boolean;
-  created_at: string;
-};
-
-export type SupportTicket = {
-  id: number;
-  user_id: number;
-  project_id: number | null;
-  subject: string;
-  category: string;
-  priority: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  messages: SupportMessage[];
 };
 
 export type PublicComponentStatus = {

@@ -15,7 +15,7 @@ export function Login() {
   const [password, setPassword] = useState("apex-admin");
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [accountType, setAccountType] = useState<"admin" | "dev" | "client">("client");
+  const [accountType, setAccountType] = useState<"admin" | "dev" | "viewer">("viewer");
   const [adminCode, setAdminCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function Login() {
           account_type: accountType,
           admin_signup_code: adminCode || undefined
         });
-        setSuccess(accountType === "admin" && !adminCode ? "Conta criada como Cliente e enviada para revisao de admin." : "Conta criada. Abrindo dashboard...");
+        setSuccess(accountType === "admin" && !adminCode ? "Conta criada como Viewer aguardando aprovacao." : "Conta criada. Abrindo dashboard...");
       }
       setProgress(100);
       window.setTimeout(() => setRedirect(true), 520);
@@ -110,7 +110,7 @@ export function Login() {
             </div>
           </div>
           <p className="max-w-xl text-lg text-apex-muted">
-            Uma entrada segura, elegante e preparada para times: login, cadastro, OAuth futuro e aprovacao de papeis sensiveis.
+            Entrada segura para a hospedagem privada da Apex: login, cadastro interno, OAuth futuro e aprovacao de papeis sensiveis.
           </p>
           <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
             {["Deploys seguros", "Blue/green", "Auditoria"].map((item) => (
@@ -186,8 +186,8 @@ export function Login() {
                 </label>
                 <label className="block">
                   <span className="label">Tipo de conta</span>
-                  <select className="field" value={accountType} onChange={(event) => setAccountType(event.target.value as "admin" | "dev" | "client")}>
-                    <option value="client">Cliente / Viewer</option>
+                  <select className="field" value={accountType} onChange={(event) => setAccountType(event.target.value as "admin" | "dev" | "viewer")}>
+                    <option value="viewer">Viewer</option>
                     <option value="dev">Dev</option>
                     <option value="admin">Admin (exige codigo)</option>
                   </select>

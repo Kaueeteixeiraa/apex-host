@@ -3,7 +3,7 @@ import re
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models import Alert, AuditLog, BackupRecord, HealthCheck, Project, ProjectAvailabilitySetting, ProjectNodeDeployment, SupportMessage, SupportTicket
+from app.models import Alert, AuditLog, BackupRecord, HealthCheck, Project, ProjectAvailabilitySetting, ProjectNodeDeployment
 
 
 def slugify(value: str) -> str:
@@ -33,10 +33,6 @@ def allocate_host_port(project: Project) -> int:
 
 
 def delete_project_records(db: Session, project: Project) -> None:
-    tickets = db.query(SupportTicket).filter(SupportTicket.project_id == project.id).all()
-    for ticket in tickets:
-        db.query(SupportMessage).filter(SupportMessage.ticket_id == ticket.id).delete(synchronize_session=False)
-        db.delete(ticket)
     db.query(Alert).filter(Alert.project_id == project.id).delete(synchronize_session=False)
     db.query(AuditLog).filter(AuditLog.project_id == project.id).update({"project_id": None}, synchronize_session=False)
     db.query(BackupRecord).filter(BackupRecord.project_id == project.id).delete(synchronize_session=False)

@@ -7,16 +7,16 @@ import { Deploys } from "./pages/Deploys";
 import { Domains } from "./pages/Domains";
 import { EnvVars } from "./pages/EnvVars";
 import { Help } from "./pages/Help";
+import { Infrastructure } from "./pages/Infrastructure";
 import { Login } from "./pages/Login";
 import { Logs } from "./pages/Logs";
 import { Monitoring } from "./pages/Monitoring";
 import { NotFound } from "./pages/NotFound";
-import { Plans } from "./pages/Plans";
+import { Backups } from "./pages/Backups";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { Projects } from "./pages/Projects";
 import { PublicStatus } from "./pages/PublicStatus";
 import { Settings } from "./pages/Settings";
-import { Support } from "./pages/Support";
 import { Availability } from "./pages/Availability";
 import { Admin } from "./pages/Admin";
 
@@ -41,12 +41,12 @@ export default function App() {
         <Route path="projects/:projectId/env" element={<EnvVars />} />
         <Route path="projects/:projectId/monitoring" element={<Monitoring />} />
         <Route path="projects/:projectId/availability" element={<Availability />} />
-        <Route path="plans" element={<Plans />} />
         <Route path="deploys" element={<Deploys />} />
         <Route path="logs" element={<Logs />} />
         <Route path="domains" element={<Domains />} />
         <Route path="monitoring" element={<Monitoring />} />
-        <Route path="support" element={<Support />} />
+        <Route path="infrastructure" element={<Infrastructure />} />
+        <Route path="backups" element={<Backups />} />
         <Route path="help" element={<Help />} />
         <Route path="admin" element={<Admin />} />
         <Route path="settings" element={<Settings />} />

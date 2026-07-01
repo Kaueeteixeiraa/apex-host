@@ -72,7 +72,7 @@ export function Admin() {
       <PageHeader
         eyebrow="Owner Console"
         title="Painel Admin"
-        description="Usuarios, projetos, nodes, alertas, auditoria, limites e configuracoes globais da plataforma."
+        description="Usuarios internos, projetos, nodes, alertas, auditoria, limites e configuracoes globais da infraestrutura."
         icon={Shield}
         actions={
           <button className="btn-secondary" onClick={() => void load()}>
@@ -103,7 +103,7 @@ export function Admin() {
                 <tr>
                   <th className="p-2">Usuario</th>
                   <th className="p-2">Role</th>
-                  <th className="p-2">Plano</th>
+                  <th className="p-2">Perfil</th>
                   <th className="p-2">Status</th>
                 </tr>
               </thead>
@@ -118,16 +118,15 @@ export function Admin() {
                       <select className="field min-w-28" value={item.role} onChange={(event) => void updateUser(item, { role: event.target.value })}>
                         <option value="admin">admin</option>
                         <option value="dev">dev</option>
-                        <option value="client">client</option>
+                        <option value="viewer">viewer</option>
                       </select>
                     </td>
                     <td className="p-2">
                       <select className="field min-w-32" value={item.plan} onChange={(event) => void updateUser(item, { plan: event.target.value })}>
-                        <option value="free">free</option>
-                        <option value="pro">pro</option>
-                        <option value="business">business</option>
-                        <option value="apex_internal">apex_internal</option>
-                        <option value="pending_admin_review">pending_review</option>
+                        <option value="viewer">viewer</option>
+                        <option value="dev">dev</option>
+                        <option value="admin_internal">admin_internal</option>
+                        <option value="pending_approval">pending_approval</option>
                       </select>
                     </td>
                     <td className="p-2">
@@ -178,11 +177,10 @@ export function Admin() {
                 </label>
               </div>
               <label>
-                <span className="label">Plano padrao</span>
+                <span className="label">Perfil padrao</span>
                 <select className="field" value={platform.default_user_plan} onChange={(event) => setPlatform({ ...platform, default_user_plan: event.target.value })}>
-                  <option value="free">free</option>
-                  <option value="pro">pro</option>
-                  <option value="business">business</option>
+                  <option value="viewer">viewer</option>
+                  <option value="dev">dev</option>
                 </select>
               </label>
               <button className="btn-primary" onClick={() => void savePlatform()}>

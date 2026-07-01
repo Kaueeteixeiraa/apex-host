@@ -14,7 +14,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
-    plan: Mapped[str] = mapped_column(String(50), default="admin_unlimited", nullable=False)
+    plan: Mapped[str] = mapped_column(String(50), default="viewer", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     limits: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -24,8 +24,6 @@ class User(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="user")
     project_memberships: Mapped[list["ProjectMember"]] = relationship(cascade="all, delete-orphan", back_populates="user")
     sessions: Mapped[list["UserSession"]] = relationship(cascade="all, delete-orphan", back_populates="user")
-    support_tickets: Mapped[list["SupportTicket"]] = relationship(cascade="all, delete-orphan", back_populates="user")
-    support_messages: Mapped[list["SupportMessage"]] = relationship(cascade="all, delete-orphan", back_populates="user")
 
 
 class Project(Base):
@@ -356,7 +354,7 @@ class PlatformSetting(Base):
     maintenance_mode: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     allow_registration: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     require_account_approval: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    default_user_plan: Mapped[str] = mapped_column(String(80), default="free", nullable=False)
+    default_user_plan: Mapped[str] = mapped_column(String(80), default="viewer", nullable=False)
     default_user_limits: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     smtp_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     alert_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
@@ -364,39 +362,3 @@ class PlatformSetting(Base):
     cdn_config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-
-
-class SupportTicket(Base):
-    __tablename__ = "support_tickets"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
-    subject: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[str] = mapped_column(String(80), default="other", nullable=False)
-    priority: Mapped[str] = mapped_column(String(50), default="medium", nullable=False)
-    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-
-    user: Mapped[User] = relationship(back_populates="support_tickets")
-    project: Mapped[Project | None] = relationship()
-    messages: Mapped[list["SupportMessage"]] = relationship(
-        cascade="all, delete-orphan",
-        back_populates="ticket",
-        order_by="SupportMessage.created_at.asc()",
-    )
-
-
-class SupportMessage(Base):
-    __tablename__ = "support_messages"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id"), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
-    is_admin_reply: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-    ticket: Mapped[SupportTicket] = relationship(back_populates="messages")
-    user: Mapped[User] = relationship(back_populates="support_messages")

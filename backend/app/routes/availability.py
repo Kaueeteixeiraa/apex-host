@@ -169,6 +169,17 @@ def export_system(
     return record
 
 
+@router.get("/backups", response_model=list[BackupRecordRead])
+def list_backups(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[BackupRecord]:
+    query = db.query(BackupRecord)
+    if user.role != "admin":
+        query = query.filter(BackupRecord.project_id.isnot(None))
+    return query.order_by(BackupRecord.created_at.desc()).limit(100).all()
+
+
 @router.get("/backups/{backup_id}/download")
 def download_backup(
     backup_id: int,

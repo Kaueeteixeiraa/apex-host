@@ -6,6 +6,7 @@ from app.db.base import Base
 from app.db.session import engine
 from app.models import ServerNode, User
 from app.services.platform import get_or_create_platform_settings
+from app.services.access_profiles import limits_for_profile
 
 
 def create_tables() -> None:
@@ -16,6 +17,11 @@ def ensure_admin_user(db: Session) -> User:
     settings = get_settings()
     admin = db.query(User).filter(User.email == settings.admin_email).first()
     if admin:
+        if admin.role == "admin" and admin.plan != "admin_internal":
+            admin.plan = "admin_internal"
+            admin.limits = limits_for_profile("admin_internal")
+            db.commit()
+            db.refresh(admin)
         return admin
 
     admin = User(
@@ -23,14 +29,8 @@ def ensure_admin_user(db: Session) -> User:
         full_name=settings.admin_name,
         hashed_password=get_password_hash(settings.admin_password),
         role="admin",
-        plan="admin_unlimited",
-        limits={
-            "projects": None,
-            "deploys": None,
-            "domains": None,
-            "ram_mb": None,
-            "storage_mb": None,
-        },
+        plan="admin_internal",
+        limits=limits_for_profile("admin_internal"),
     )
     db.add(admin)
     db.commit()

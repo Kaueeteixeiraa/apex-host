@@ -1,0 +1,160 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-apex_host}
+      POSTGRES_USER: ${POSTGRES_USER:-apex_host}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apex_host} -d ${POSTGRES_DB:-apex_host}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DATA_DIR: /data
+      AUTO_CREATE_TABLES: "false"
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+    volumes:
+      - apex_data:/data
+      - ./data/backups:/data/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/nginx/sites-available/apex-host-projects:/etc/nginx/sites-available/apex-host-projects
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+      - apps
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: python -m app.worker
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DATA_DIR: /data
+      AUTO_CREATE_TABLES: "false"
+    volumes:
+      - apex_data:/data
+      - ./data/backups:/data/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/nginx/sites-available/apex-host-projects:/etc/nginx/sites-available/apex-host-projects
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+      - apps
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${API_URL}
+    command: sh -c "npm run build && npm run preview -- --port 5173 --host 0.0.0.0"
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./data/backups:/backups
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c 'while true; do
+      stamp=$$(date +%Y%m%d-%H%M%S);
+      pg_dump -h postgres -U "$${POSTGRES_USER:-apex_host}" "$${POSTGRES_DB:-apex_host}" | gzip > "/backups/apex_host-$$stamp.sql.gz";
+      find /backups -name "apex_host-*.sql.gz" -mtime +"$${BACKUP_RETENTION_DAYS:-14}" -delete;
+      sleep 86400;
+      done'
+    logging: *default-logging
+
+networks:
+  internal:
+    name: ${DOCKER_NETWORK:-apex-host-internal}
+    internal: true
+  apps:
+    name: ${DOCKER_APPS_NETWORK:-apex-host-apps}
+
+volumes:
+  postgres_data:
+  redis_data:
+  apex_data:

@@ -35,7 +35,7 @@ def create_project(
     if user.role != "admin" and project_limit is not None:
         owned_count = db.query(Project).filter(Project.owner_id == user.id).count()
         if owned_count >= int(project_limit):
-            raise HTTPException(status_code=403, detail="Project limit reached for your current plan")
+            raise HTTPException(status_code=403, detail="Project limit reached for your internal access profile")
     slug = unique_slug(db, payload.slug or payload.name)
     project = Project(
         owner_id=user.id,

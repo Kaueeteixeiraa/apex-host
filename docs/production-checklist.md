@@ -97,12 +97,12 @@ Este checklist guia um teste real do Apex Host em uma VPS. Execute primeiro em a
 
 ## Operacao
 
-- [ ] Abrir ticket de suporte como usuario comum.
-- [ ] Responder ticket como Admin.
+- [ ] Revisar tela de Infraestrutura.
+- [ ] Revisar tela de Backups.
 - [ ] Alterar plano de usuario.
 - [ ] Bloquear e desbloquear conta de teste.
 - [ ] Suspender projeto de teste.
-- [ ] Verificar auditoria de login, deploy, suporte e admin.
+- [ ] Verificar auditoria de login, deploy, backup, restore e admin.
 - [ ] Ativar modo manutencao e confirmar que Admin ainda acessa.
 - [ ] Confirmar que projetos hospedados continuam servindo durante manutencao do painel.
 - [ ] Acessar pagina publica `/status`.

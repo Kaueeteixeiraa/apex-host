@@ -1,6 +1,6 @@
 # Apex Host
 
-Apex Host e uma plataforma privada de hospedagem da Apex Technologies, inspirada em Vercel, Railway, Render e Netlify. O foco atual e hospedar projetos proprios com um painel premium, seguro e operacional: projetos, deploys, dominios, logs, variaveis de ambiente, monitoramento e integracao GitHub.
+Apex Host e uma plataforma privada de hospedagem da Apex Technologies. O foco atual e hospedar projetos proprios com um painel seguro e operacional: projetos, deploys internos, dominios, logs, variaveis de ambiente, backups, monitoramento e infraestrutura 24/7.
 
 > Espaco para prints: login, dashboard, wizard de projeto, pagina de projeto, deploys, logs e dominios.
 
@@ -18,9 +18,9 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies, inspirada
 - Tela inicial premium com login e cadastro sem reload, validacao visual, loading animado e protecao contra admin livre.
 - Disponibilidade por projeto: health checks, auto-restart, alertas, backups, nodes, fallback/CDN e modo alta disponibilidade.
 - Painel Admin com usuarios, projetos, nodes, alertas, auditoria, limites e configuracoes globais.
-- Planos internos Free, Pro, Business e Interno Apex, com limites preparados para cobranca futura.
+- Limites internos por usuario/projeto, sem linguagem comercial.
 - Templates de projeto, deteccao automatica de framework e status publico em `/status`.
-- Central de suporte com tickets, respostas, categorias, prioridades e base de ajuda.
+- Ajuda operacional para deploy, dominios, logs, fallback, rollback e VPS.
 - Analise local de logs/deploys preparada para futura integracao com IA.
 
 ## Rodando localmente
@@ -79,6 +79,27 @@ Servicos previstos:
 - `worker`: executor de deploys RQ.
 - `frontend`: painel React.
 
+## Producao em VPS
+
+Arquivos principais:
+
+- `docker-compose.prod.yml`: stack de producao com Postgres, Redis, backend, worker, frontend e backup diario.
+- `nginx/apex-host.conf.example`: Nginx com SSL, headers de seguranca, rate limit, proxy de API/painel e compatibilidade WebSocket.
+- `docs/production-vps.md`: passo a passo completo para Ubuntu, SSH, firewall, Docker, Nginx, Certbot, dominio, SSL, migrations, Admin, webhook, deploy, rollback e backup.
+- `docs/backup-restore.md`: rotina de backup manual/automatico e restore testado.
+- `docs/go-live-checklist.md`: checklist final antes de abrir para uso real.
+
+Subida recomendada na VPS:
+
+```bash
+cp .env.example .env
+nano .env
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+```
+
+Importante: em producao use `ENVIRONMENT=production`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_PASSWORD` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas.
+
 ## Teste real em producao/VPS
 
 O checklist completo esta em [`docs/production-checklist.md`](docs/production-checklist.md).
@@ -93,7 +114,7 @@ Resumo do teste real:
 - Fazer primeiro deploy dry run e depois deploy real.
 - Configurar dominio customizado e gerar SSL.
 - Testar health check, auto-restart, rollback, backup, download de backup e fallback.
-- Testar pagina publica `/status`, tickets de suporte, auditoria, bloqueio de usuario e modo manutencao.
+- Testar pagina publica `/status`, auditoria, bloqueio de usuario, backups e modo manutencao.
 
 ## Variaveis importantes
 
@@ -133,7 +154,7 @@ A tela `/login` combina login e cadastro no mesmo fluxo, sem recarregar a pagina
 Cadastro inclui:
 
 - Nome, e-mail, senha e confirmacao.
-- Tipo de conta: Cliente, Dev ou Admin.
+- Tipo de conta: Viewer, Dev ou Admin.
 - Validacao visual e feedback moderno.
 - Login automatico apos cadastro.
 
@@ -142,18 +163,18 @@ Seguranca do cadastro:
 - `PUBLIC_REGISTRATION_ENABLED=false` desativa cadastro publico.
 - O Admin tambem pode desativar cadastro na tela Admin por configuracao de plataforma.
 - Usuario que pede Admin so recebe Admin se informar `ADMIN_SIGNUP_CODE`.
-- Sem codigo valido, a conta e criada como Cliente com `plan=pending_admin_review`.
+- Sem codigo valido, a conta Admin solicitada vira Viewer inativo aguardando aprovacao.
 - A trilha de auditoria registra papel solicitado e papel concedido.
 - A politica minima de senha exige 8 caracteres, letra maiuscula, letra minuscula e numero.
 - Logins geram sessoes com IP e user-agent; o usuario pode sair de todos os dispositivos.
 
-## Fase 4: Admin, planos, templates, status, suporte e IA preparada
+## Fase 4: Admin, infraestrutura, backups, templates, status e IA preparada
 
 Implementado nesta fase:
 
 - `/admin`: painel do dono da plataforma com usuarios, projetos, nodes, alertas, auditoria e configuracoes.
-- `/plans`: comparativo visual de planos internos e limites.
-- `/support`: abertura e resposta de tickets com categoria, prioridade e status.
+- `/infrastructure`: operacao da VPS, servicos internos, Docker, Nginx, Redis, Postgres e alertas.
+- `/backups`: exportacao, listagem, download e preparacao de restore com confirmacao forte.
 - `/help`: FAQ operacional para deploy, dominio, logs, fallback, HA e rollback.
 - `/status`: status publico com componentes, incidentes, nodes e uptime.
 - Templates iniciais: HTML/CSS/JS, React + Vite, Next.js, Node/Express, Flask, FastAPI, landing simples e institucional Apex.
@@ -353,8 +374,10 @@ Validacoes usadas durante desenvolvimento:
 ```bash
 cd backend
 python -m compileall app
+python -m pytest
 
 cd ../frontend
+npm test
 npm run build
 ```
 
@@ -375,8 +398,8 @@ npm run build
 
 ### Fase 4
 
-- Admin, planos, templates, deteccao de framework, status publico, suporte, IA preparada para logs e modo manutencao.
+- Admin, infraestrutura, backups, templates, deteccao de framework, status publico, IA preparada para logs e modo manutencao.
 
 ### Fase 5
 
-- Pagamentos, marketplace, produto comercial, multi-regiao, agente real por servidor, WebSocket/SSE e orquestracao multi-node completa.
+- Segunda VPS, agente real por servidor, WebSocket/SSE e orquestracao multi-node completa.

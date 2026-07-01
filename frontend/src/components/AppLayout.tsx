@@ -1,15 +1,15 @@
 import {
   Activity,
   Boxes,
-  CreditCard,
+  DatabaseBackup,
   Gauge,
   Globe2,
-  LifeBuoy,
   BookOpen,
   LayoutDashboard,
   LogOut,
   RadioTower,
   ScrollText,
+  Server,
   Settings,
   Shield,
   TerminalSquare
@@ -18,18 +18,18 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
+import { api, InfrastructureStatus } from "../lib/api";
 import { ApexLogo } from "./ApexLogo";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/projects", label: "Projetos", icon: Boxes },
-  { to: "/plans", label: "Planos", icon: CreditCard },
   { to: "/domains", label: "Dominios", icon: Globe2 },
   { to: "/deploys", label: "Deploys", icon: TerminalSquare },
   { to: "/logs", label: "Logs", icon: ScrollText },
   { to: "/monitoring", label: "Monitoramento", icon: Activity },
-  { to: "/support", label: "Suporte", icon: LifeBuoy },
+  { to: "/infrastructure", label: "Infraestrutura", icon: Server },
+  { to: "/backups", label: "Backups", icon: DatabaseBackup },
   { to: "/help", label: "Ajuda", icon: BookOpen },
   { to: "/status", label: "Status", icon: RadioTower },
   { to: "/settings", label: "Configuracoes", icon: Settings },
@@ -39,11 +39,15 @@ const nav = [
 export function AppLayout() {
   const { user, logout } = useAuth();
   const [maintenance, setMaintenance] = useState(false);
+  const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
 
   useEffect(() => {
     void api<{ maintenance_mode: boolean }>("/public/platform")
       .then((data) => setMaintenance(Boolean(data.maintenance_mode)))
       .catch(() => setMaintenance(false));
+    void api<InfrastructureStatus>("/monitor/infrastructure")
+      .then(setInfra)
+      .catch(() => setInfra(null));
   }, []);
 
   const visibleNav = nav.filter((item) => !item.adminOnly || user?.role === "admin");
@@ -74,7 +78,7 @@ export function AppLayout() {
           <ApexLogo className="h-11 w-11" />
           <div>
             <div className="font-semibold text-white">Apex Host</div>
-            <div className="text-xs text-apex-muted">Neon cloud deploys</div>
+            <div className="text-xs text-apex-muted">Infraestrutura privada Apex</div>
           </div>
         </div>
 
@@ -88,7 +92,9 @@ export function AppLayout() {
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
-                    isActive ? "border border-apex-cyan/40 bg-apex-cyan/10 text-white shadow-glow" : "text-apex-muted hover:bg-white/5 hover:text-white"
+                    isActive
+                      ? "border border-apex-cyan/50 bg-apex-cyan/10 text-white shadow-glow"
+                      : "border border-transparent text-apex-muted hover:border-apex-line hover:bg-white/5 hover:text-white"
                   }`
                 }
               >
@@ -111,6 +117,15 @@ export function AppLayout() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <HealthPill status={infra?.overall_status || "stable"} />
+              <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block">
+                {labelEnvironment(infra?.environment)}
+              </div>
+              {infra?.dry_run ? (
+                <div className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-100">
+                  DRY RUN ATIVO
+                </div>
+              ) : null}
               <div className="hidden items-center gap-2 rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted sm:flex">
                 <Gauge className="h-3.5 w-3.5 text-apex-cyan" />
                 {user?.email}
@@ -146,6 +161,28 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+function labelEnvironment(value?: string) {
+  if (!value || value === "development") return "Local";
+  if (value === "production") return "Producao";
+  return value;
+}
+
+function HealthPill({ status }: { status: string }) {
+  const tone =
+    status === "critical"
+      ? "border-red-400/40 bg-red-500/10 text-red-100"
+      : status === "attention"
+        ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-100"
+        : "border-emerald-400/40 bg-emerald-400/10 text-emerald-100";
+  const label = status === "critical" ? "Critico" : status === "attention" ? "Atencao" : "Estavel";
+  return (
+    <div className={`hidden items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium sm:flex ${tone}`}>
+      <span className="h-2 w-2 rounded-full bg-current apex-pulse" />
+      {label}
     </div>
   );
 }

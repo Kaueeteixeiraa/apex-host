@@ -1,4 +1,4 @@
-"""phase 4 product admin support platform
+"""phase 4 private admin platform
 
 Revision ID: 20260630_0004
 Revises: 20260630_0003
@@ -48,32 +48,9 @@ def upgrade() -> None:
         sa.Column("revoked_at", sa.DateTime()),
     )
     op.create_index("ix_user_sessions_token_hash", "user_sessions", ["token_hash"])
-    op.create_table(
-        "support_tickets",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("project_id", sa.Integer(), sa.ForeignKey("projects.id")),
-        sa.Column("subject", sa.String(255), nullable=False),
-        sa.Column("category", sa.String(80), nullable=False),
-        sa.Column("priority", sa.String(50), nullable=False),
-        sa.Column("status", sa.String(50), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
-    )
-    op.create_table(
-        "support_messages",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("ticket_id", sa.Integer(), sa.ForeignKey("support_tickets.id"), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("body", sa.Text(), nullable=False),
-        sa.Column("is_admin_reply", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
-    )
 
 
 def downgrade() -> None:
-    op.drop_table("support_messages")
-    op.drop_table("support_tickets")
     op.drop_index("ix_user_sessions_token_hash", table_name="user_sessions")
     op.drop_table("user_sessions")
     op.drop_table("platform_settings")

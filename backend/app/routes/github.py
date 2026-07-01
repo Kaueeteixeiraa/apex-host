@@ -49,7 +49,7 @@ def oauth_start(user: User = Depends(get_current_user)) -> dict[str, str]:
 async def oauth_callback(code: str, state: str, db: Session = Depends(get_db)) -> RedirectResponse:
     settings = get_settings()
     try:
-        payload = jwt.decode(state, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(state, settings.effective_jwt_secret, algorithms=[settings.jwt_algorithm])
         subject = str(payload.get("sub", ""))
     except JWTError as exc:
         raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc

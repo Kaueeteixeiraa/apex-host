@@ -17,7 +17,7 @@ type RegisterPayload = {
   email: string;
   password: string;
   confirm_password: string;
-  account_type: "admin" | "dev" | "client";
+  account_type: "admin" | "dev" | "viewer";
   admin_signup_code?: string;
 };
 

@@ -1,9 +1,10 @@
 from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.routes import admin, audit, auth, availability, dashboard, deploys, domains, env_vars, github, logs, monitoring, plans, projects, public, support, templates
+from app.routes import admin, audit, auth, availability, dashboard, deploys, domains, env_vars, github, logs, monitoring, projects, public, templates
 from app.services.availability import start_health_monitor
 from app.services.bootstrap import create_tables, ensure_admin_user, ensure_default_node, ensure_platform_settings
 
@@ -12,6 +13,16 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_name)
 app.state.health_monitor_started = False
+
+if settings.environment.lower() == "production":
+    allowed_hosts = {"localhost", "127.0.0.1"}
+    for origin in settings.cors_origins:
+        host = origin.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+        if host:
+            allowed_hosts.add(host)
+    allowed_hosts.add(settings.base_domain)
+    allowed_hosts.add(f"*.{settings.base_domain}")
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(allowed_hosts))
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +51,7 @@ def startup() -> None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": settings.app_name}
+    return {"status": "ok", "service": settings.app_name, "environment": settings.environment}
 
 
 app.include_router(auth.router, prefix=settings.api_prefix)
@@ -56,6 +67,4 @@ app.include_router(github.router, prefix=settings.api_prefix)
 app.include_router(audit.router, prefix=settings.api_prefix)
 app.include_router(availability.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
-app.include_router(plans.router, prefix=settings.api_prefix)
 app.include_router(templates.router, prefix=settings.api_prefix)
-app.include_router(support.router, prefix=settings.api_prefix)

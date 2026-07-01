@@ -4,17 +4,21 @@ import {
   AlertTriangle,
   Boxes,
   Cpu,
+  Database,
+  DatabaseBackup,
   Globe2,
   HardDrive,
+  Network,
   type LucideIcon,
   MemoryStick,
   Rocket,
   ScrollText,
-  Settings
+  Settings,
+  ShieldCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { api, DashboardStats, Deploy, formatDate, Project } from "../lib/api";
+import { api, BackupRecord, DashboardStats, Deploy, formatDate, InfrastructureStatus, Project } from "../lib/api";
 import { DashboardSkeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
@@ -25,11 +29,20 @@ import { StatusBadge } from "../components/StatusBadge";
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardStats | null>(null);
+  const [infra, setInfra] = useState<InfrastructureStatus | null>(null);
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
-    setData(await api<DashboardStats>("/dashboard"));
+    const [dashboard, infraStatus, backupList] = await Promise.all([
+      api<DashboardStats>("/dashboard"),
+      api<InfrastructureStatus>("/monitor/infrastructure"),
+      api<BackupRecord[]>("/backups").catch(() => [])
+    ]);
+    setData(dashboard);
+    setInfra(infraStatus);
+    setBackups(backupList);
   };
 
   useEffect(() => {
@@ -54,9 +67,9 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Apex Host Control Plane"
+        eyebrow="Infraestrutura privada Apex"
         title="Dashboard"
-        description="Visao operacional dos projetos, deploys, dominios e saude geral da VPS."
+        description="Visao operacional de projetos Apex, deploys internos, backups e saude geral da VPS."
         icon={Activity}
         actions={
           <>
@@ -81,8 +94,8 @@ export function Dashboard() {
             <div className="section-title">Status da plataforma</div>
             <h2 className="mt-2 text-3xl font-semibold text-white">{health}</h2>
             <p className="muted mt-2 max-w-2xl">
-              {data.online_projects} projetos online, {data.building_projects} buildando e {data.error_projects} com erro. O modo seguro deixa deploys em dry run
-              ate voce ativar Docker em producao.
+              {data.online_projects} projetos online, {data.offline_projects} offline e {data.error_projects} com erro. O painel indica claramente quando o modo seguro
+              esta em dry run.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -94,11 +107,31 @@ export function Dashboard() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total de projetos" value={data.total_projects} icon={Boxes} detail={`${data.online_projects} online`} />
-        <StatCard title="Dominios ativos" value={data.active_domains} icon={Globe2} detail="Custom + subdominios" />
-        <StatCard title="Deploys com erro" value={data.error_projects} icon={AlertTriangle} detail="Projetos em estado de erro" />
-        <StatCard title="CPU do servidor" value={`${data.server.cpu_percent}%`} icon={Cpu} detail="Leitura instantanea" />
+        <StatCard title="Projetos online" value={data.online_projects} icon={Boxes} detail="Sites respondendo" />
+        <StatCard title="Projetos offline" value={data.offline_projects + data.error_projects} icon={AlertTriangle} detail="Exigem verificacao" />
+        <StatCard title="Ultimo deploy" value={data.recent_deploys[0] ? `#${data.recent_deploys[0].id}` : "-"} icon={Rocket} detail={data.recent_deploys[0] ? formatDate(data.recent_deploys[0].started_at) : "Nenhum deploy"} />
+        <StatCard title="Ultimo backup" value={backups[0] ? `#${backups[0].id}` : "-"} icon={DatabaseBackup} detail={backups[0] ? formatDate(backups[0].created_at) : "Nenhum backup"} />
+        <StatCard title="Worker" value={infra?.services.worker || "unknown"} icon={Activity} detail="Fila de deploys" />
+        <StatCard title="Banco" value={infra?.services.postgres || "unknown"} icon={Database} detail="Persistencia principal" />
+        <StatCard title="Redis" value={infra?.services.redis || "unknown"} icon={Network} detail="Fila/cache" />
+        <StatCard title="Nginx" value={infra?.services.nginx || "unknown"} icon={Globe2} detail="Proxy local" />
+        <StatCard title="Disco livre" value={`${data.server.disk_free_gb ?? Math.max(data.server.disk_total_gb - data.server.disk_used_gb, 0).toFixed(1)} GB`} icon={HardDrive} detail={`${data.server.disk_percent}% usado`} />
+        <StatCard title="SSL proximo" value="0" icon={ShieldCheck} detail="Sem certificados vencendo registrados" />
       </section>
+
+      {infra?.dry_run ? (
+        <section className="panel border-yellow-400/30 bg-yellow-400/5 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-yellow-100">DRY RUN ATIVO</div>
+              <p className="muted mt-1">Deploys reais com Docker estao desativados neste ambiente. Use o modo producao somente na VPS preparada.</p>
+            </div>
+            <Link className="btn-secondary" to="/help">
+              Como ativar producao
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section>
         <div className="mb-3 flex items-center justify-between">
@@ -116,12 +149,12 @@ export function Dashboard() {
         ) : (
           <EmptyState
             icon={Boxes}
-            title="Nenhum projeto ainda"
-            description="Crie o primeiro projeto para conectar repositorio, configurar dominio e iniciar deploys controlados."
+            title="Nenhum projeto hospedado ainda"
+            description="A infraestrutura esta pronta para receber o primeiro site interno da Apex."
             action={
               <Link className="btn-primary" to="/projects">
                 <Rocket className="h-4 w-4" />
-                Criar projeto
+                Criar primeiro projeto
               </Link>
             }
           />
@@ -185,6 +218,7 @@ export function Dashboard() {
     </div>
   );
 }
+
 
 function MetricBar({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (

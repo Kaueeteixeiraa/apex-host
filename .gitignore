@@ -1,10 +1,12 @@
 .env
+.tools/
 *.db
 __pycache__/
 .pytest_cache/
 .venv/
 node_modules/
 dist/
+backend/data/
 data/repos/
 data/postgres/
 data/redis/

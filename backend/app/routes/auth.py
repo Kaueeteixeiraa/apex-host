@@ -13,7 +13,7 @@ from app.models import User, UserSession
 from app.schemas import LoginRequest, RegisterRequest, Token, TwoFactorSetupRead, UserRead, UserSessionRead
 from app.services.audit import record_audit
 from app.services.platform import get_or_create_platform_settings
-from app.services.plans import limits_for_plan
+from app.services.access_profiles import limits_for_profile
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -48,21 +48,20 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
 
     requested_role = payload.account_type
     role = requested_role
-    plan = platform.default_user_plan or "free"
-    limits = limits_for_plan(plan)
-    limits.update({"requested_role": requested_role, "approval_required": platform.require_account_approval})
-    if platform.require_account_approval and requested_role != "admin":
-        plan = "pending_admin_review"
-        limits.update({"projects": 1, "custom_domains": 1})
+    plan = "dev" if requested_role == "dev" else "viewer"
+    is_active = True
+    limits = limits_for_profile(plan) | {"requested_role": requested_role, "approval_required": not is_active}
     if requested_role == "admin":
         if settings.admin_signup_code and payload.admin_signup_code == settings.admin_signup_code:
             role = "admin"
-            plan = "apex_internal"
-            limits = limits_for_plan("apex_internal") | {"requested_role": requested_role, "approval_required": False}
+            plan = "admin_internal"
+            is_active = True
+            limits = limits_for_profile("admin_internal") | {"requested_role": requested_role, "approval_required": False}
         else:
-            role = "client"
-            plan = "pending_admin_review"
-            limits.update({"projects": 1, "custom_domains": 1, "approval_required": True})
+            role = "viewer"
+            plan = "pending_approval"
+            is_active = False
+            limits = limits_for_profile("pending_approval") | {"requested_role": requested_role, "approval_required": True}
 
     user = User(
         email=email,
@@ -70,6 +69,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
         hashed_password=get_password_hash(payload.password),
         role=role,
         plan=plan,
+        is_active=is_active,
         limits=limits,
     )
     db.add(user)

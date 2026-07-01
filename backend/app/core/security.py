@@ -24,7 +24,7 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
     payload: dict[str, Any] = {"sub": str(subject), "exp": expires}
-    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(payload, settings.effective_jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def hash_token(token: str) -> str:
@@ -33,7 +33,7 @@ def hash_token(token: str) -> str:
 
 def _fernet() -> Fernet:
     settings = get_settings()
-    digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
+    digest = hashlib.sha256(settings.effective_encryption_key.encode("utf-8")).digest()
     key = base64.urlsafe_b64encode(digest)
     return Fernet(key)
 

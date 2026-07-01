@@ -21,7 +21,7 @@ class RegisterRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
-    account_type: str = Field(default="client", pattern=r"^(admin|dev|client)$")
+    account_type: str = Field(default="viewer", pattern=r"^(admin|dev|viewer)$")
     admin_signup_code: str | None = Field(default=None, max_length=120)
 
     @field_validator("confirm_password")
@@ -459,7 +459,7 @@ class ConfirmAction(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    role: str | None = Field(default=None, pattern=r"^(admin|dev|client)$")
+    role: str | None = Field(default=None, pattern=r"^(admin|dev|viewer)$")
     plan: str | None = Field(default=None, max_length=80)
     is_active: bool | None = None
     limits: dict[str, Any] | None = None
@@ -589,49 +589,6 @@ class TwoFactorSetupRead(BaseModel):
     status: str
     manual_secret: str
     message: str
-
-
-class SupportTicketCreate(BaseModel):
-    subject: str = Field(min_length=4, max_length=255)
-    body: str = Field(min_length=4)
-    category: str = Field(default="other", pattern=r"^(deploy|domain|account|billing|bug|other)$")
-    priority: str = Field(default="medium", pattern=r"^(low|medium|high)$")
-    project_id: int | None = None
-
-
-class SupportTicketUpdate(BaseModel):
-    status: str | None = Field(default=None, pattern=r"^(open|reviewing|resolved)$")
-    priority: str | None = Field(default=None, pattern=r"^(low|medium|high)$")
-
-
-class SupportMessageCreate(BaseModel):
-    body: str = Field(min_length=4)
-
-
-class SupportMessageRead(BaseModel):
-    id: int
-    ticket_id: int
-    user_id: int
-    body: str
-    is_admin_reply: bool
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class SupportTicketRead(BaseModel):
-    id: int
-    user_id: int
-    project_id: int | None
-    subject: str
-    category: str
-    priority: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-    messages: list[SupportMessageRead] = []
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class PublicComponentStatus(BaseModel):

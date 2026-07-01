@@ -15,7 +15,7 @@ from app.schemas import (
 )
 from app.services.audit import record_audit
 from app.services.platform import get_or_create_platform_settings
-from app.services.plans import limits_for_plan
+from app.services.access_profiles import limits_for_profile
 from app.services.projects import delete_project_records
 
 
@@ -67,7 +67,7 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     data = payload.model_dump(exclude_unset=True)
     if "plan" in data and data["plan"] and "limits" not in data:
-        data["limits"] = limits_for_plan(data["plan"])
+        data["limits"] = limits_for_profile(data["plan"])
     if target.id == admin.id and data.get("is_active") is False:
         raise HTTPException(status_code=409, detail="You cannot block your own admin account")
     for key, value in data.items():

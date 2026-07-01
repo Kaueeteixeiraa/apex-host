@@ -17,7 +17,7 @@ export function Help() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Knowledge Base"
+        eyebrow="Operacao interna"
         title="Ajuda Apex Host"
         description="Perguntas frequentes para operacao diaria, deploy, dominio, logs, fallback e alta disponibilidade."
         icon={BookOpen}
