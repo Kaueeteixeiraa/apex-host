@@ -173,7 +173,7 @@ def _load_environment(db: Session, project: Project) -> dict[str, str]:
 
 def _run_build_steps(db: Session, deploy: Deploy, project: Project, repo_path: Path) -> None:
     settings = get_settings()
-    if not settings.enable_build_commands:
+    if not settings.build_commands_enabled:
         append_deploy_log(db, deploy, "deploy", "Build commands disabled. Set ENABLE_BUILD_COMMANDS=true to execute install/build.")
         return
 
@@ -230,8 +230,8 @@ CMD {cmd}
 
 def _docker_deploy(db: Session, deploy: Deploy, project: Project, repo_path: Path) -> None:
     settings = get_settings()
-    if not settings.enable_docker_deploys:
-        append_deploy_log(db, deploy, "deploy", "Docker deployment disabled. Set ENABLE_DOCKER_DEPLOYS=true for real containers.")
+    if not settings.docker_deploys_enabled:
+        append_deploy_log(db, deploy, "deploy", "Docker deployment disabled. Set DRY_RUN=false and DEPLOY_MODE=docker for real containers.")
         return
     if not which("docker"):
         raise ValueError("Docker CLI not found")
@@ -318,7 +318,7 @@ def _write_nginx_config(db: Session, deploy: Deploy, project: Project) -> None:
     server_name {' '.join(hostnames)};
 
     location / {{
-        proxy_pass http://127.0.0.1:{project.host_port};
+        proxy_pass http://{settings.nginx_upstream_host}:{project.host_port};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -393,7 +393,7 @@ def run_deploy_task(deploy_id: int) -> None:
             _ensure_not_canceled(db, deploy)
             _docker_deploy(db, deploy, project, repo_path)
             _write_nginx_config(db, deploy, project)
-            project.status = "online" if get_settings().enable_docker_deploys else "offline"
+            project.status = "online" if get_settings().docker_deploys_enabled else "offline"
         else:
             append_deploy_log(db, deploy, "deploy", "Dry run finished. No container was changed.")
             project.status = "offline"

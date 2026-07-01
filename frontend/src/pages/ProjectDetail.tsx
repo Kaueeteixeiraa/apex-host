@@ -62,9 +62,9 @@ export function ProjectDetail() {
   const redeploy = async () => {
     const deploy = await api<Deploy>(`/projects/${projectId}/deploys`, {
       method: "POST",
-      body: JSON.stringify({ dry_run: true })
+      body: JSON.stringify({})
     });
-    setMessage(`Deploy dry run #${deploy.id} enfileirado.`);
+    setMessage(`Deploy #${deploy.id} enfileirado.`);
   };
 
   if (error) return <div className="panel p-5 text-red-200">{error}</div>;

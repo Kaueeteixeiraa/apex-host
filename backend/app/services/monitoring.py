@@ -87,7 +87,7 @@ def infrastructure_status() -> dict:
         "overall_status": overall,
         "environment": get_settings().environment,
         "deploy_mode": get_settings().deploy_mode,
-        "dry_run": get_settings().dry_run or not get_settings().enable_docker_deploys,
+        "dry_run": get_settings().dry_run or not get_settings().docker_deploys_enabled,
         "server": metrics,
         "services": services,
         "docker": {"available": docker_available, "active_containers": len(containers), "containers": containers[:30]},

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { History, Play, RefreshCcw, RotateCcw, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 
-import { Deploy, LogAnalysis, api, formatDate } from "../lib/api";
+import { Deploy, InfrastructureStatus, LogAnalysis, api, formatDate } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
 import { FeedbackBanner } from "../components/FeedbackBanner";
 import { PageHeader } from "../components/PageHeader";
@@ -26,6 +26,7 @@ export function Deploys() {
 
   useEffect(() => {
     void loadDeploys();
+    void api<InfrastructureStatus>("/monitor/infrastructure").then((data) => setDryRun(data.dry_run)).catch(() => setDryRun(true));
     const interval = window.setInterval(() => void loadDeploys(), 4000);
     return () => window.clearInterval(interval);
   }, [selectedId]);
@@ -51,9 +52,9 @@ export function Deploys() {
     if (!selectedId) return;
     const deploy = await api<Deploy>(`/projects/${selectedId}/deploys/rollback`, {
       method: "POST",
-      body: JSON.stringify({ dry_run: true, target_deploy_id: deployId })
+      body: JSON.stringify({ target_deploy_id: deployId })
     });
-    setMessage(`Rollback dry run #${deploy.id} enfileirado.`);
+    setMessage(`Rollback #${deploy.id} enfileirado.`);
     await loadDeploys();
   };
 
@@ -170,7 +171,7 @@ export function Deploys() {
               <EmptyState
                 icon={History}
                 title="Nenhum deploy para este projeto"
-                description="Execute o primeiro deploy em dry run para validar comandos, logs e auditoria."
+                description="Execute o primeiro deploy para validar comandos, logs e auditoria."
                 action={
                   <button className="btn-primary" onClick={() => void trigger()}>
                     <Play className="h-4 w-4" />

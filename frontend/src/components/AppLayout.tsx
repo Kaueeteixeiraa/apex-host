@@ -103,7 +103,7 @@ export function AppLayout() {
               <button className="btn-secondary shrink-0 p-2 lg:hidden" onClick={() => setDrawerOpen(true)} title="Abrir menu">
                 <Menu className="h-4 w-4" />
               </button>
-              <ApexLogo className="hidden h-9 w-9 shrink-0 sm:block lg:hidden" />
+              <ApexLogo size="sm" className="hidden h-9 w-9 shrink-0 sm:block lg:hidden" />
               <div className="min-w-0">
                 <div className="text-sm font-medium text-white">Apex Technologies</div>
                 <div className="truncate text-xs text-apex-muted">Hospedagem privada para projetos Apex</div>
@@ -165,12 +165,8 @@ function SidebarContent({
   return (
     <>
       <div className={collapsed ? "mb-8 flex flex-col items-center gap-3" : "mb-8 flex items-center justify-between gap-3"}>
-        <div className={collapsed ? "grid place-items-center" : "flex min-w-0 items-center gap-3"}>
-          <ApexLogo className="h-11 w-11 shrink-0" />
-          {!collapsed ? <div className="min-w-0">
-            <div className="font-semibold text-white">Apex Host</div>
-            <div className="truncate text-xs text-apex-muted">Infraestrutura privada Apex</div>
-          </div> : null}
+        <div className={collapsed ? "grid w-full place-items-center" : "min-w-0"}>
+          <ApexLogo size="md" collapsed={collapsed} showText />
         </div>
         <button className="btn-secondary shrink-0 p-2" onClick={onToggle} title={mobile ? "Fechar menu" : collapsed ? "Expandir menu" : "Recolher menu"}>
           {mobile ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}

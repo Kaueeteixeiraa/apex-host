@@ -52,9 +52,9 @@ export function Dashboard() {
     setMessage(null);
     const deploy = await api<Deploy>(`/projects/${project.id}/deploys`, {
       method: "POST",
-      body: JSON.stringify({ dry_run: true })
+      body: JSON.stringify({})
     });
-    setMessage(`Deploy dry run #${deploy.id} enfileirado para ${project.name}.`);
+    setMessage(`Deploy #${deploy.id} enfileirado para ${project.name}.`);
     await load();
   };
 

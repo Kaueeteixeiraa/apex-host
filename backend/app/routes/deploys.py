@@ -40,7 +40,7 @@ def create_deploy(
         recent_count = db.query(Deploy).join(Project).filter(Project.owner_id == user.id, Deploy.started_at >= since).count()
         if recent_count >= int(deploy_limit):
             raise HTTPException(status_code=403, detail="Daily deploy limit reached for your internal access profile")
-    dry_run = payload.dry_run if payload.dry_run is not None else not get_settings().enable_docker_deploys
+    dry_run = payload.dry_run if payload.dry_run is not None else get_settings().dry_run or not get_settings().docker_deploys_enabled
     deploy = Deploy(project_id=project.id, branch=project.branch, dry_run=dry_run, status="queued", deploy_type="manual")
     db.add(deploy)
     db.flush()
@@ -106,7 +106,7 @@ def rollback_deploy(
     target = query.order_by(Deploy.finished_at.desc()).first()
     if target is None or not target.commit_sha:
         raise HTTPException(status_code=404, detail="No successful deploy is available for rollback")
-    dry_run = payload.dry_run if payload.dry_run is not None else True
+    dry_run = payload.dry_run if payload.dry_run is not None else get_settings().dry_run or not get_settings().docker_deploys_enabled
     deploy = Deploy(
         project_id=project.id,
         branch=target.branch,

@@ -164,7 +164,7 @@ export function Projects() {
       if (triggerDeploy) {
         await api<Deploy>(`/projects/${project.id}/deploys`, {
           method: "POST",
-          body: JSON.stringify({ dry_run: true })
+          body: JSON.stringify({})
         });
       }
 
@@ -190,9 +190,9 @@ export function Projects() {
   const quickDeploy = async (project: Project) => {
     const deploy = await api<Deploy>(`/projects/${project.id}/deploys`, {
       method: "POST",
-      body: JSON.stringify({ dry_run: true })
+      body: JSON.stringify({})
     });
-    setMessage(`Deploy dry run #${deploy.id} enfileirado para ${project.name}.`);
+    setMessage(`Deploy #${deploy.id} enfileirado para ${project.name}.`);
   };
 
   return (
@@ -457,12 +457,12 @@ export function Projects() {
                 <div className="mt-2 text-apex-muted">1. Clonar repositorio</div>
                 <div className="text-apex-muted">2. Validar comandos permitidos</div>
                 <div className="text-apex-muted">3. Aplicar variaveis criptografadas</div>
-                <div className="text-apex-muted">4. Executar dry run seguro por padrao</div>
+                <div className="text-apex-muted">4. Executar conforme o modo do ambiente</div>
               </div>
               <div className="rounded-lg border border-apex-line bg-black/20 p-4">
                 <label className="flex items-center gap-2 text-sm text-apex-muted">
                   <input type="checkbox" checked={triggerDeploy} onChange={(event) => setTriggerDeploy(event.target.checked)} />
-                  Iniciar deploy dry run apos criar
+                  Iniciar deploy apos criar
                 </label>
                 <button className="btn-primary mt-4 w-full" disabled={loading}>
                   <Rocket className="h-4 w-4" />

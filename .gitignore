@@ -1,4 +1,6 @@
 .env
+.env.production
+nginx/apex-host.prod.conf
 .tools/
 *.db
 __pycache__/

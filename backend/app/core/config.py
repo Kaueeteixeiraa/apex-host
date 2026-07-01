@@ -1,13 +1,13 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import computed_field
+from pydantic import AliasChoices, Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "Apex Host"
-    environment: str = "development"
+    environment: str = Field("development", validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"))
     api_prefix: str = "/api"
 
     secret_key: str = "change-me-before-production"
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     docker_cpu_limit: str | None = None
     docker_memory_limit: str | None = None
     nginx_sites_dir: str | None = None
+    nginx_upstream_host: str = "127.0.0.1"
     nginx_test_command: str = "nginx -t"
     nginx_reload_command: str = "nginx -s reload"
     certbot_enabled: bool = False
@@ -52,8 +53,8 @@ class Settings(BaseSettings):
     backup_path: str = "/data/backups"
     backup_retention_days: int = 14
     github_webhook_secret: str | None = None
-    github_oauth_client_id: str | None = None
-    github_oauth_client_secret: str | None = None
+    github_oauth_client_id: str | None = Field(default=None, validation_alias=AliasChoices("GITHUB_OAUTH_CLIENT_ID", "GITHUB_CLIENT_ID"))
+    github_oauth_client_secret: str | None = Field(default=None, validation_alias=AliasChoices("GITHUB_OAUTH_CLIENT_SECRET", "GITHUB_CLIENT_SECRET"))
     github_oauth_redirect_url: str = "http://localhost:8000/api/github/oauth/callback"
     admin_signup_code: str | None = None
     public_registration_enabled: bool = True
@@ -88,6 +89,18 @@ class Settings(BaseSettings):
     @property
     def effective_encryption_key(self) -> str:
         return self.encryption_key or self.secret_key
+
+    @computed_field
+    @property
+    def docker_deploys_enabled(self) -> bool:
+        mode = self.deploy_mode.lower().replace("_", "-")
+        return self.enable_docker_deploys or (not self.dry_run and mode in {"docker", "production"})
+
+    @computed_field
+    @property
+    def build_commands_enabled(self) -> bool:
+        mode = self.deploy_mode.lower().replace("_", "-")
+        return self.enable_build_commands or (not self.dry_run and mode in {"docker", "production"})
 
     def validate_for_production(self) -> None:
         if self.environment.lower() != "production":
