@@ -476,17 +476,6 @@ class AdminOverviewRead(BaseModel):
     recent_errors: list[LogRead]
 
 
-class PlanRead(BaseModel):
-    id: str
-    name: str
-    description: str
-    audience: str
-    price_label: str
-    limits: dict[str, Any]
-    features: list[str]
-    highlighted: bool = False
-
-
 class ProjectTemplateRead(BaseModel):
     id: str
     name: str

@@ -112,7 +112,7 @@ export function AppLayout() {
             <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
               <HealthPill status={infra?.overall_status || "stable"} />
               <div className="hidden rounded-full border border-apex-line bg-white/5 px-3 py-1 text-xs text-apex-muted md:block" title="Rodando no ambiente local desta maquina.">
-                {labelEnvironment(infra?.environment)}
+                {labelEnvironment(infra)}
               </div>
               {infra?.dry_run ? (
                 <div className="rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-100" title="Deploys reais com Docker estao desativados neste ambiente.">
@@ -205,10 +205,13 @@ function SidebarContent({
   );
 }
 
-function labelEnvironment(value?: string) {
-  if (!value || value === "development") return "Local";
-  if (value === "production") return "Producao";
-  return value;
+function labelEnvironment(infra?: InfrastructureStatus | null) {
+  if (infra?.dry_run) return "Dry Run";
+  const stage = (infra?.deploy_stage || "").toLowerCase().replace("_", "-");
+  if (stage === "staging-vps" || stage === "staging") return "Staging VPS";
+  if (stage === "production" || infra?.environment === "production") return "Producao";
+  if (!infra?.environment || infra.environment === "development") return "Local";
+  return infra.environment;
 }
 
 function HealthPill({ status }: { status: string }) {

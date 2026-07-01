@@ -109,6 +109,12 @@ services:
     networks:
       - internal
       - apps
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os, redis; redis.from_url(os.environ.get('REDIS_URL', 'redis://redis:6379/0'), socket_connect_timeout=3).ping(); print('worker dependencies ok')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     logging: *default-logging
 
   frontend:

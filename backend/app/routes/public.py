@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import Alert, HealthCheck, Project, ServerNode
 from app.schemas import PublicStatusRead
+from app.services.monitoring import infrastructure_status
 from app.services.platform import get_or_create_platform_settings
 
 
@@ -37,17 +38,34 @@ def public_status(db: Session = Depends(get_db)) -> dict:
         return round((sum(1 for item in items if item.status == "online") / len(items)) * 100, 2)
 
     nodes = db.query(ServerNode).order_by(ServerNode.role.asc()).all()
+    infra = infrastructure_status()
     open_critical = db.query(Alert).filter(Alert.acknowledged.is_(False), Alert.severity == "critical").count()
     overall = "operational"
     if open_critical:
         overall = "degraded"
     if nodes and all(node.status == "offline" for node in nodes):
         overall = "major_outage"
+    if infra["overall_status"] == "critical":
+        overall = "major_outage"
+    elif infra["overall_status"] == "attention" and overall == "operational":
+        overall = "degraded"
+
+    label_by_service = {
+        "backend": "API Apex Host",
+        "frontend": "Painel Apex Host",
+        "worker": "Worker de deploy",
+        "postgres": "Banco de dados",
+        "redis": "Redis",
+        "nginx": "Nginx",
+        "certbot": "Certbot",
+    }
     components = [
-        {"name": "API Apex Host", "status": "operational", "detail": "Health endpoint ativo"},
-        {"name": "Worker de deploy", "status": "operational", "detail": "Fila preparada para Redis/local"},
-        {"name": "Banco de dados", "status": "operational", "detail": "Sessao SQL disponivel"},
-        {"name": "Redis", "status": "unknown", "detail": "Status depende da configuracao da VPS"},
+        {
+            "name": label_by_service.get(name, name),
+            "status": "operational" if status in {"online", "configured"} else status,
+            "detail": f"checagem real: {status}",
+        }
+        for name, status in infra["services"].items()
     ]
     components.extend({"name": f"Node {node.name}", "status": node.status, "detail": node.role} for node in nodes)
     monitored_projects = db.query(Project).filter(Project.status.in_(["online", "degraded", "offline"])).limit(8).all()
@@ -63,5 +81,8 @@ def public_status(db: Session = Depends(get_db)) -> dict:
             "name": settings.platform_name,
             "primary_color": settings.primary_color,
             "maintenance_mode": settings.maintenance_mode,
+            "environment": infra["environment"],
+            "deploy_stage": infra.get("deploy_stage"),
+            "dry_run": infra["dry_run"],
         },
     }

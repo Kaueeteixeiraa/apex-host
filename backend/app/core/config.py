@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Apex Host"
     environment: str = Field("development", validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"))
+    deploy_stage: str = Field("local", validation_alias=AliasChoices("DEPLOY_STAGE", "APEX_DEPLOY_STAGE"))
     api_prefix: str = "/api"
 
     secret_key: str = "change-me-before-production"

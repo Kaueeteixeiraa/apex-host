@@ -117,6 +117,7 @@ export type DashboardStats = {
 export type InfrastructureStatus = {
   overall_status: "stable" | "attention" | "critical" | string;
   environment: string;
+  deploy_stage?: string;
   deploy_mode: string;
   dry_run: boolean;
   server: ServerMetric;

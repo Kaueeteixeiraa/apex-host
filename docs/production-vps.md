@@ -1,6 +1,6 @@
-# Apex Host em producao real na VPS
+# Apex Host em Producao de teste / Staging VPS
 
-Runbook para rodar o Apex Host 24/7 em uma VPS Ubuntu com Docker, Nginx, SSL, Postgres, Redis, worker e deploys reais.
+Runbook para validar o Apex Host 24/7 em uma VPS Ubuntu com Docker, Nginx, SSL, Postgres, Redis, worker e deploys reais antes do go-live definitivo.
 
 ## 1. Comprar e preparar a VPS
 
@@ -38,6 +38,7 @@ Variaveis obrigatorias para deploy real:
 
 ```env
 APP_ENV=production
+DEPLOY_STAGE=staging_vps
 DRY_RUN=false
 DEPLOY_MODE=docker
 PUBLIC_APP_URL=https://host.seudominio.com
@@ -47,6 +48,8 @@ DATABASE_URL=postgresql+psycopg://apex_host:SENHA@postgres:5432/apex_host
 REDIS_URL=redis://redis:6379/0
 JWT_SECRET=...
 ENCRYPTION_KEY=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
 GITHUB_WEBHOOK_SECRET=...
 CERTBOT_EMAIL=admin@seudominio.com
 DOCKER_NETWORK=apex-host-internal
@@ -90,14 +93,14 @@ sudo certbot certonly --webroot -w /opt/apex-host/data/certbot/www -d host.seudo
 
 Para wildcard, use DNS challenge do seu provedor ou emita certificados por projeto conforme a estrategia de dominios.
 
-## 6. Subir producao
+## 6. Subir Staging VPS
 
 ```bash
 cd /opt/apex-host
 scripts/deploy-production.sh
 ```
 
-O script carrega `.env.production`, roda migrations, sobe containers, testa healthchecks e valida Nginx.
+O script carrega `.env.production`, valida variaveis obrigatorias, roda migrations, sobe containers, testa Postgres, Redis, backend, worker, frontend, Nginx e mostra status final.
 
 ## 7. Primeiro Admin
 
@@ -141,7 +144,7 @@ Com `DRY_RUN=false` e `DEPLOY_MODE=docker`, o deploy clona/puxa o repositorio, e
 
 ## 10. Testes obrigatorios
 
-Teste antes de anunciar go-live:
+Teste antes de transformar em hospedagem principal:
 
 - Restart da VPS.
 - Login admin.

@@ -18,7 +18,7 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies. O foco at
 - Tela inicial premium com login e cadastro sem reload, validacao visual, loading animado e protecao contra admin livre.
 - Disponibilidade por projeto: health checks, auto-restart, alertas, backups, nodes, fallback/CDN e modo alta disponibilidade.
 - Painel Admin com usuarios, projetos, nodes, alertas, auditoria, limites e configuracoes globais.
-- Limites internos por usuario/projeto, sem linguagem comercial.
+- Perfis internos por usuario/projeto: Admin, Dev e Viewer.
 - Templates de projeto, deteccao automatica de framework e status publico em `/status`.
 - Ajuda operacional para deploy, dominios, logs, fallback, rollback e VPS.
 - Analise local de logs/deploys preparada para futura integracao com IA.
@@ -79,15 +79,19 @@ Servicos previstos:
 - `worker`: executor de deploys RQ.
 - `frontend`: painel React.
 
-## Producao em VPS
+## Producao de teste / Staging VPS
+
+Antes de usar como hospedagem principal dos sites da Apex, trate a primeira VPS como uma fase de validacao. O objetivo e provar deploy real, Docker, Nginx, SSL, logs, backup, restore, rollback e reinicio da VPS com poucos sites simples.
 
 Arquivos principais:
 
 - `docker-compose.prod.yml`: stack de producao com Postgres, Redis, backend, worker, frontend e backup diario.
 - `nginx/apex-host.conf.example`: Nginx com SSL, headers de seguranca, rate limit, proxy de API/painel e compatibilidade WebSocket.
 - `docs/production-vps.md`: passo a passo completo para Ubuntu, SSH, firewall, Docker, Nginx, Certbot, dominio, SSL, migrations, Admin, webhook, deploy, rollback e backup.
+- `docs/staging-vps-test-plan.md`: roteiro de validacao com HTML, React/Vite, Next.js e Flask/FastAPI.
 - `docs/backup-restore.md`: rotina de backup manual/automatico e restore testado.
-- `docs/go-live-checklist.md`: checklist final antes de abrir para uso real.
+- `docs/security-go-live.md`: checklist de seguranca antes do go-live.
+- `docs/go-live-checklist.md`: checklist final com estados `Nao iniciado`, `Testado` e `Aprovado`.
 
 Subida recomendada na VPS:
 
@@ -98,11 +102,11 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Importante: em producao use `ENVIRONMENT=production`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_PASSWORD` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas.
+Importante: na Staging VPS use `ENVIRONMENT=production`, `DEPLOY_STAGE=staging_vps`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_PASSWORD` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas.
 
-## Teste real em producao/VPS
+## Teste real em Staging VPS
 
-O checklist completo esta em [`docs/production-checklist.md`](docs/production-checklist.md).
+O checklist geral esta em [`docs/production-checklist.md`](docs/production-checklist.md) e o roteiro detalhado de testes esta em [`docs/staging-vps-test-plan.md`](docs/staging-vps-test-plan.md).
 
 Resumo do teste real:
 
@@ -130,6 +134,7 @@ BACKEND_CORS_ORIGINS=http://localhost:5173
 ENABLE_DOCKER_DEPLOYS=false
 ENABLE_BUILD_COMMANDS=false
 USE_REDIS_DEPLOY_QUEUE=true
+DEPLOY_STAGE=local
 
 BASE_DOMAIN=apexhost.local
 NGINX_SITES_DIR=
@@ -185,11 +190,11 @@ Implementado nesta fase:
 
 O botao "Entrar com GitHub OAuth" esta preparado visualmente. O OAuth GitHub existente hoje conecta repositorios apos login; para usar GitHub como provedor de login ainda falta implementar fluxo publico de identidade.
 
-## Dry Run vs Producao
+## Dry Run vs deploy real
 
 Dry run e o modo seguro padrao. Ele permite validar cadastro, clone, deteccao, logs e fluxo de deploy sem alterar containers reais.
 
-Producao exige ativar explicitamente:
+Deploy real na Staging VPS exige ativar explicitamente:
 
 ```env
 ENABLE_DOCKER_DEPLOYS=true
@@ -394,7 +399,7 @@ npm run build
 
 ### Fase 3
 
-- Producao VPS, backups, rollback, health checks e monitoramento.
+- Staging VPS, backups, rollback, health checks e monitoramento.
 
 ### Fase 4
 

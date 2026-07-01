@@ -1,77 +1,36 @@
 # Apex Host Go-Live Checklist
 
-Use esta lista antes de colocar o Apex Host em producao real.
+Use esta lista depois da fase `Producao de teste / Staging VPS`.
 
-## Ambiente
+Estados:
 
-- [ ] `APP_ENV=production`.
-- [ ] `ENVIRONMENT=production`.
-- [ ] `DRY_RUN=false`.
-- [ ] `DEPLOY_MODE=docker`.
-- [ ] `.env.production` existe e nao foi commitado.
-- [ ] `JWT_SECRET`, `SECRET_KEY` e `ENCRYPTION_KEY` fortes.
-- [ ] `ADMIN_PASSWORD` temporaria forte.
-- [ ] `ADMIN_SIGNUP_CODE` vazio ou controlado.
+- `Nao iniciado`: ainda nao validado.
+- `Testado`: validado tecnicamente na VPS.
+- `Aprovado`: liberado para hospedar sites principais da Apex.
 
-## DNS e SSL
+| Item | Nao iniciado | Testado | Aprovado | Evidencia |
+| --- | --- | --- | --- | --- |
+| VPS configurada | [ ] | [ ] | [ ] | `scripts/setup-vps.sh` executado |
+| Dominio apontado | [ ] | [ ] | [ ] | `dig +short host.seudominio.com` |
+| Wildcard de projetos apontado | [ ] | [ ] | [ ] | `dig +short teste.BASE_DOMAIN` |
+| SSL ativo | [ ] | [ ] | [ ] | Certbot/painel HTTPS |
+| Admin criado | [ ] | [ ] | [ ] | `scripts/create-admin.sh` |
+| Login funcionando | [ ] | [ ] | [ ] | acesso ao painel |
+| GitHub conectado | [ ] | [ ] | [ ] | repos listados |
+| Webhook funcionando | [ ] | [ ] | [ ] | push gera evento/deploy |
+| Deploy HTML aprovado | [ ] | [ ] | [ ] | site estatico online |
+| Deploy React/Vite aprovado | [ ] | [ ] | [ ] | build e container online |
+| Deploy Flask/FastAPI aprovado | [ ] | [ ] | [ ] | `/health` do projeto online |
+| Deploy Next.js aprovado, se usado | [ ] | [ ] | [ ] | SSR/runtime validado |
+| Rollback aprovado | [ ] | [ ] | [ ] | rollback manual e logs |
+| Rollback automatico aprovado | [ ] | [ ] | [ ] | deploy ruim recuperado |
+| Backup aprovado | [ ] | [ ] | [ ] | arquivo gerado e baixado |
+| Restore aprovado | [ ] | [ ] | [ ] | restore em ambiente separado |
+| Health checks aprovados | [ ] | [ ] | [ ] | API, worker, banco, Redis, Nginx, projetos |
+| Reinicio da VPS aprovado | [ ] | [ ] | [ ] | containers e projetos voltaram |
+| Monitoramento aprovado | [ ] | [ ] | [ ] | `/status` e Infraestrutura revisados |
+| Seguranca aprovada | [ ] | [ ] | [ ] | `docs/security-go-live.md` completo |
 
-- [ ] Dominio do painel apontado para a VPS.
-- [ ] Wildcard/subdominio de projetos apontado para a VPS.
-- [ ] SSL ativo no painel.
-- [ ] Certbot instalado.
-- [ ] Renovacao SSL testada.
-- [ ] Headers de seguranca conferidos.
+## Condicao de liberacao
 
-## Infraestrutura
-
-- [ ] Docker funcionando.
-- [ ] Docker Compose funcionando.
-- [ ] Nginx funcionando.
-- [ ] UFW ativo.
-- [ ] Fail2Ban ativo.
-- [ ] Postgres interno sem porta publica.
-- [ ] Redis interno sem porta publica.
-- [ ] Worker online.
-- [ ] Volumes persistentes criados.
-- [ ] Logs com limite no Docker.
-
-## Aplicacao
-
-- [ ] `scripts/setup-vps.sh` executado.
-- [ ] `scripts/deploy-production.sh` executado.
-- [ ] Migrations rodaram com sucesso.
-- [ ] `/health` retorna ok.
-- [ ] Login funcionando.
-- [ ] Primeiro admin criado com `scripts/create-admin.sh`.
-- [ ] Cadastro admin publico nao libera admin sem codigo.
-- [ ] Badge do painel mostra `Producao`.
-- [ ] `DRY RUN ATIVO` nao aparece em producao real.
-
-## Deploy real
-
-- [ ] GitHub conectado.
-- [ ] Primeiro projeto criado.
-- [ ] Deploy real testado.
-- [ ] Container real criado.
-- [ ] Nginx recebeu rota do projeto.
-- [ ] Health check funcionando.
-- [ ] Logs aparecem no painel.
-- [ ] Projeto acessivel por subdominio/dominio.
-- [ ] Rollback manual funcionando.
-- [ ] Falha de deploy nao derruba versao anterior quando blue/green estiver ativo.
-
-## Backups
-
-- [ ] Backup manual funcionando.
-- [ ] Backup automatico/cron funcionando.
-- [ ] Retencao configurada.
-- [ ] Restore testado em ambiente separado.
-- [ ] Backup armazenado fora da VPS ou sincronizado externamente.
-
-## Pos-go-live
-
-- [ ] Restart da VPS testado.
-- [ ] Containers voltam com `restart: unless-stopped`.
-- [ ] Monitoramento revisado.
-- [ ] Alertas recentes revisados.
-- [ ] Documentacao de incidente pronta.
+Nao usar como hospedagem principal enquanto qualquer item critico estiver apenas em `Nao iniciado`.

@@ -25,7 +25,7 @@ fi
 id "$APP_USER" >/dev/null 2>&1 || adduser --disabled-password --gecos "" "$APP_USER"
 usermod -aG docker "$APP_USER"
 
-mkdir -p "$APP_DIR" "$APP_DIR/data/backups" "$APP_DIR/data/certbot/www" "$APP_DIR/data/letsencrypt" "$APP_DIR/data/nginx-fallback"
+mkdir -p "$APP_DIR" "$APP_DIR/data/repos" "$APP_DIR/data/backups" "$APP_DIR/data/certbot/www" "$APP_DIR/data/letsencrypt" "$APP_DIR/data/nginx-fallback"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 docker network inspect "$DOCKER_APPS_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_APPS_NETWORK"

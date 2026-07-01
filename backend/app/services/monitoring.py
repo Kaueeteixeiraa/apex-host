@@ -35,6 +35,13 @@ def _tcp_status(host: str, port: int, timeout: float = 0.5) -> str:
         return "offline"
 
 
+def _first_online(targets: list[tuple[str, int]]) -> str:
+    for host, port in targets:
+        if _tcp_status(host, port) == "online":
+            return "online"
+    return "offline"
+
+
 def _database_status() -> str:
     db = SessionLocal()
     try:
@@ -72,13 +79,14 @@ def infrastructure_status() -> dict:
             containers = [line for line in result.stdout.splitlines() if line.strip()]
         except subprocess.SubprocessError:
             containers = []
+    worker_status = "online" if any("worker" in name and "apex" in name for name in containers) else "unknown"
     services = {
         "backend": _tcp_status("127.0.0.1", 8000),
-        "frontend": _tcp_status("127.0.0.1", 5173),
-        "worker": "unknown",
+        "frontend": _first_online([("127.0.0.1", 5173), ("frontend", 5173)]),
+        "worker": worker_status,
         "postgres": _database_status(),
         "redis": _redis_status(),
-        "nginx": _tcp_status("127.0.0.1", 80),
+        "nginx": _first_online([("127.0.0.1", 80), ("nginx", 80)]),
         "certbot": "configured" if get_settings().certbot_enabled else "not_configured",
     }
     unhealthy = [value for value in services.values() if value in {"offline", "degraded"}]
@@ -86,6 +94,7 @@ def infrastructure_status() -> dict:
     return {
         "overall_status": overall,
         "environment": get_settings().environment,
+        "deploy_stage": get_settings().deploy_stage,
         "deploy_mode": get_settings().deploy_mode,
         "dry_run": get_settings().dry_run or not get_settings().docker_deploys_enabled,
         "server": metrics,
