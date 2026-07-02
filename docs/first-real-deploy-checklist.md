@@ -16,15 +16,17 @@ Use este checklist antes de considerar a VPS pronta para hospedar projetos reais
 - [ ] `ENABLE_BUILD_COMMANDS=true`.
 - [ ] `AUTO_CREATE_TABLES=false`.
 - [ ] Segredos fortes configurados.
-- [ ] `scripts/setup-vps.sh` executado.
-- [ ] `scripts/deploy-production.sh` executado sem erro.
+- [ ] `sudo bash scripts/go-live.sh` executado ou passos separados abaixo concluidos.
+- [ ] `sudo bash scripts/install.sh` executado sem erro.
+- [ ] `sudo bash scripts/bootstrap-production.sh` executado sem erro.
+- [ ] `bash scripts/check-vps.sh` sem falhas criticas.
 
 ## Apex Host
 
 - [ ] Apex Host online no dominio principal.
 - [ ] Badge do painel mostra `Staging VPS` ou `Producao`.
 - [ ] Badge `DRY RUN ATIVO` nao aparece.
-- [ ] Admin criado com `scripts/create-admin.sh`.
+- [ ] Admin criado com `bash scripts/create-admin.sh`.
 - [ ] Login admin testado.
 - [ ] GitHub conectado ou URL manual validada.
 - [ ] Worker de deploy online.

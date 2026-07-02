@@ -7,34 +7,43 @@ Objetivo: garantir que banco, configuracoes de projetos, dominios, variaveis cri
 - Postgres: fonte principal de usuarios, projetos, deploys, auditoria e configuracoes.
 - `DATA_DIR`: repos clonados, backups JSON gerados pelo painel e arquivos operacionais.
 - `.env`: guardar fora do Git, em cofre seguro. Sem ele, variaveis criptografadas podem ficar irrecuperaveis.
-- Nginx gerado: `/etc/nginx/sites-available/apex-host-projects`.
+- Nginx gerado: volume `nginx_project_sites` e `nginx/apex-host.prod.conf`.
 - Backups exportados pelo Admin.
 
-## Backup automatico diario
+## Backup automatico
 
-O `docker-compose.prod.yml` inclui o servico `backup`, que roda `pg_dump` diariamente e remove arquivos acima de `BACKUP_RETENTION_DAYS`.
+O `docker-compose.prod.yml` inclui o servico `backup`, que roda `pg_dump` diariamente. O `scripts/install.sh` tambem instala timers systemd para backup diario, semanal e mensal usando `bash scripts/backup_postgres.sh`.
 
 Variaveis:
 
 ```env
 BACKUP_PATH=/data/backups
+HOST_BACKUP_PATH=/opt/apex-host/data/backups
 BACKUP_RETENTION_DAYS=14
+BACKUP_WEEKLY_RETENTION_DAYS=56
+BACKUP_MONTHLY_RETENTION_DAYS=365
 POSTGRES_DB=apex_host
 POSTGRES_USER=apex_host
 POSTGRES_PASSWORD=senha-forte
 ```
 
+`BACKUP_PATH` e o caminho visto pelos containers. `HOST_BACKUP_PATH` e opcional e controla onde os scripts do host gravam os arquivos; por padrao eles usam `/opt/apex-host/data/backups`.
+
 Os arquivos ficam em:
 
 ```text
-data/backups/apex_host-YYYYmmdd-HHMMSS.sql.gz
+data/backups/daily/apex_host-YYYYmmdd-HHMMSS.sql.gz
+data/backups/weekly/apex_host-YYYYmmdd-HHMMSS.sql.gz
+data/backups/monthly/apex_host-YYYYmmdd-HHMMSS.sql.gz
 ```
 
 ## Backup manual
 
 ```bash
 cd /opt/apex-host
-COMPOSE_FILE=docker-compose.prod.yml BACKUP_PATH=/opt/apex-host/data/backups scripts/backup_postgres.sh
+bash scripts/backup_postgres.sh
+BACKUP_KIND=weekly bash scripts/backup_postgres.sh
+BACKUP_KIND=monthly bash scripts/backup_postgres.sh
 ```
 
 Copie para armazenamento externo:
@@ -60,28 +69,27 @@ Teste primeiro em ambiente separado. O comando exige confirmacao forte:
 
 ```bash
 cd /opt/apex-host
-scripts/restore_postgres.sh data/backups/apex_host-YYYYmmdd-HHMMSS.sql.gz RESTAURAR
+bash scripts/restore_postgres.sh data/backups/apex_host-YYYYmmdd-HHMMSS.sql.gz RESTAURAR
+bash scripts/restore_postgres.sh latest RESTAURAR
 ```
 
 Depois:
 
 ```bash
-docker compose -f docker-compose.prod.yml restart backend worker
-curl -fsS http://127.0.0.1:8000/health
+docker compose --env-file .env.production -f docker-compose.prod.yml restart backend worker
+bash scripts/check-vps.sh
 ```
 
 ## Restore completo da VPS
 
-1. Instale Ubuntu, Docker, Nginx e Certbot.
+1. Rode `sudo bash scripts/install.sh` na VPS limpa.
 2. Clone o repositorio em `/opt/apex-host`.
-3. Restaure `.env` a partir do cofre.
-4. Suba Postgres e Redis.
-5. Restaure o dump SQL.
-6. Restaure `data/`.
-7. Restaure configs Nginx de projetos.
-8. Rode `docker compose -f docker-compose.prod.yml up -d --build`.
-9. Rode `sudo nginx -t && sudo systemctl reload nginx`.
-10. Teste login, `/status`, deploy, health checks e projetos.
+3. Restaure `.env.production` a partir do cofre.
+4. Restaure `data/` quando houver arquivos operacionais externos.
+5. Rode `sudo bash scripts/bootstrap-production.sh`.
+6. Restaure o dump SQL com `bash scripts/restore_postgres.sh latest RESTAURAR`.
+7. Rode `bash scripts/check-vps.sh`.
+8. Teste login, `/status`, deploy, health checks e projetos.
 
 ## Rotina recomendada
 

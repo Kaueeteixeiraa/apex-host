@@ -17,6 +17,7 @@ from app.db.session import SessionLocal
 from app.deploy.detector import detect_project_type
 from app.models import Deploy, EnvironmentVariable, LogEntry, Project, ProjectNodeDeployment, ServerNode
 from app.services.availability import create_alert, get_or_create_availability
+from app.services.nginx_manager import issue_certificate, validate_and_reload, write_project_config
 from app.services.projects import allocate_host_port
 from app.services.validators import validate_command, validate_domain
 
@@ -412,42 +413,15 @@ def _write_nginx_config(db: Session, deploy: Deploy, project: Project) -> None:
         if prod_like:
             raise DeployStageError("Configurando Nginx", message, "O container precisa de uma porta host antes da rota Nginx.")
         return
-    sites_dir = Path(settings.nginx_sites_dir)
-    sites_dir.mkdir(parents=True, exist_ok=True)
     hostnames = [project.auto_subdomain]
     if project.primary_domain:
         hostnames.insert(0, project.primary_domain)
     hostnames = [validate_domain(hostname) for hostname in hostnames]
     append_deploy_log(db, deploy, "deploy", f"Configurando Nginx: {' '.join(hostnames)}")
-    config = f"""server {{
-    listen 80;
-    server_name {' '.join(hostnames)};
-
-    location / {{
-        proxy_pass http://{settings.nginx_upstream_host}:{project.host_port};
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }}
-}}
-"""
-    target = sites_dir / f"{project.slug}.conf"
-    target.write_text(config, encoding="utf-8")
+    target = write_project_config(project)
     append_deploy_log(db, deploy, "deploy", f"Wrote Nginx config to {target}")
-    test_args = shlex.split(settings.nginx_test_command)
-    result = _run_command(test_args, Path.cwd(), 60)
-    if result.returncode != 0:
-        message = result.stderr or result.stdout or "nginx -t failed"
-        append_deploy_log(db, deploy, "error", f"Nginx validation failed: {message}")
-        raise DeployStageError("Configurando Nginx", message, _likely_cause(message))
-    reload_args = shlex.split(settings.nginx_reload_command)
-    result = _run_command(reload_args, Path.cwd(), 60)
-    if result.returncode != 0:
-        message = result.stderr or result.stdout or "Nginx reload failed"
+    ok, message = validate_and_reload()
+    if not ok:
         append_deploy_log(db, deploy, "error", message)
         raise DeployStageError("Configurando Nginx", message, _likely_cause(message))
     append_deploy_log(db, deploy, "deploy", "Nginx validation passed and reload completed")
@@ -458,26 +432,23 @@ def _generate_ssl(db: Session, deploy: Deploy, project: Project) -> None:
     settings = get_settings()
     if not settings.certbot_enabled:
         append_deploy_log(db, deploy, "deploy", "Gerando SSL: pendente, CERTBOT_ENABLED=false.")
+        if settings.environment.lower() == "production" and project.primary_domain:
+            raise DeployStageError("Gerando SSL", "CERTBOT_ENABLED=false em deploy de producao.", "Ative CERTBOT_ENABLED=true e configure CERTBOT_EMAIL.")
         return
     if not project.primary_domain:
         append_deploy_log(db, deploy, "deploy", "Gerando SSL: pendente, nenhum dominio principal configurado.")
         return
-    if not which("certbot"):
-        append_deploy_log(db, deploy, "deploy", "Gerando SSL: nao disponivel, Certbot CLI nao encontrado no worker.")
-        return
-
     hostname = validate_domain(project.primary_domain)
-    command = ["certbot", "--nginx", "-d", hostname, "--non-interactive", "--agree-tos"]
-    if settings.certbot_email:
-        command.extend(["--email", settings.certbot_email])
-    else:
-        command.append("--register-unsafely-without-email")
     append_deploy_log(db, deploy, "deploy", f"Gerando SSL: solicitando certificado para {hostname}")
-    result = _run_deploy_command(db, deploy, command, Path.cwd(), settings.deploy_timeout_seconds)
-    if result.returncode != 0:
-        message = result.stderr or result.stdout or "Certbot failed"
+    ok, message = issue_certificate(hostname)
+    if not ok:
         append_deploy_log(db, deploy, "error", f"SSL failed: {message[:2000]}")
         raise DeployStageError("Gerando SSL", message, "Certbot recusou a emissao; confira DNS, Nginx e rate limits.")
+    target = write_project_config(project)
+    append_deploy_log(db, deploy, "deploy", f"Atualizando Nginx com SSL em {target}")
+    nginx_ok, nginx_message = validate_and_reload()
+    if not nginx_ok:
+        raise DeployStageError("Gerando SSL", nginx_message, "Certificado foi emitido, mas o reload do Nginx falhou.")
     append_deploy_log(db, deploy, "deploy", f"Gerando SSL: certificado ativo para {hostname}")
 
 
@@ -507,6 +478,12 @@ def run_deploy_task(deploy_id: int) -> None:
                 "Deploy real indisponivel: Docker esta desativado ou DEPLOY_MODE nao esta em docker.",
                 "Ative DRY_RUN=false, DEPLOY_MODE=docker e ENABLE_DOCKER_DEPLOYS=true.",
             )
+        if not deploy.dry_run and not get_settings().build_commands_enabled:
+            raise DeployStageError(
+                "Rodando build",
+                "Deploy real indisponivel: ENABLE_BUILD_COMMANDS=false.",
+                "Ative ENABLE_BUILD_COMMANDS=true para builds reais em producao.",
+            )
         _ensure_not_canceled(db, deploy)
 
         repo_path = get_settings().data_dir / "repos" / project.slug
@@ -533,7 +510,14 @@ def run_deploy_task(deploy_id: int) -> None:
                 deploy.commit_message = message_result.stdout.strip() if message_result.returncode == 0 else None
                 deploy.commit_author = author_result.stdout.strip() if author_result.returncode == 0 else None
         else:
-            append_deploy_log(db, deploy, "deploy", "No repository configured. Skipping clone/build.")
+            if deploy.dry_run:
+                append_deploy_log(db, deploy, "deploy", "No repository configured. Skipping clone/build in dry run.")
+            else:
+                raise DeployStageError(
+                    "Clonando repositorio",
+                    "Deploy real exige um repositorio Git configurado.",
+                    "Informe a URL GitHub/Git do projeto antes de publicar em producao.",
+                )
 
         if not deploy.dry_run and project.github_url:
             _ensure_not_canceled(db, deploy)

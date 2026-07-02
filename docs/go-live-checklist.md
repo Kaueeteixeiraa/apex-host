@@ -10,11 +10,11 @@ Estados:
 
 | Item | Nao iniciado | Testado | Aprovado | Evidencia |
 | --- | --- | --- | --- | --- |
-| VPS configurada | [ ] | [ ] | [ ] | `scripts/setup-vps.sh` executado |
+| VPS configurada | [ ] | [ ] | [ ] | `sudo bash scripts/go-live.sh` ou `sudo bash scripts/install.sh` + `sudo bash scripts/bootstrap-production.sh` executado |
 | Dominio apontado | [ ] | [ ] | [ ] | `dig +short host.seudominio.com` |
 | Wildcard de projetos apontado | [ ] | [ ] | [ ] | `dig +short teste.BASE_DOMAIN` |
 | SSL ativo | [ ] | [ ] | [ ] | Certbot/painel HTTPS |
-| Admin criado | [ ] | [ ] | [ ] | `scripts/create-admin.sh` |
+| Admin criado | [ ] | [ ] | [ ] | `bash scripts/create-admin.sh` |
 | Login funcionando | [ ] | [ ] | [ ] | acesso ao painel |
 | GitHub conectado | [ ] | [ ] | [ ] | repos listados |
 | Webhook funcionando | [ ] | [ ] | [ ] | push gera evento/deploy |

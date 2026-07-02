@@ -120,7 +120,7 @@ No painel:
 - Abra `Logs` para ver mensagens do projeto e do deploy.
 - Abra `Disponibilidade` e rode health check.
 - Abra o dominio publicado em nova aba.
-- Use a acao de SSL do dominio se `Gerando SSL` aparecer como pendente ou nao disponivel.
+- Se `Gerando SSL` falhar, corrija DNS/Certbot e use a acao de SSL do dominio; em producao isso nao deve ser tratado como aprovado.
 
 ## Redeploy
 

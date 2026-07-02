@@ -24,6 +24,7 @@ Apex Host e uma plataforma privada de hospedagem da Apex Technologies. O foco at
 - Analise local de logs/deploys preparada para futura integracao com IA.
 - Go Live Assistant para primeira instalacao sem admin padrao.
 - Auditoria de Producao em `/production-audit` com score, falhas criticas e correcoes.
+- Instalador real para VPS Ubuntu em `scripts/go-live.sh`, com Docker, Compose, Nginx containerizado, Certbot webroot, UFW, Fail2Ban, backups, migrations e health checks.
 
 ## Rodando localmente
 
@@ -65,7 +66,7 @@ Credenciais locais de desenvolvimento:
 - Email: `admin@apex.local`
 - Senha: `apex-admin`
 
-Use essas credenciais somente em ambiente local/dev quando `BOOTSTRAP_DEFAULT_ADMIN=true`. Em producao elas nao devem existir. O primeiro Admin de producao deve ser criado pelo assistente inicial ou por `scripts/create-admin.sh` com e-mail real e senha forte.
+Use essas credenciais somente em ambiente local/dev quando `BOOTSTRAP_DEFAULT_ADMIN=true`. Em producao elas nao devem existir. O primeiro Admin de producao deve ser criado pelo assistente inicial ou por `bash scripts/create-admin.sh` com e-mail real e senha forte.
 
 ## Docker Compose
 
@@ -90,6 +91,10 @@ Antes de usar como hospedagem principal dos sites da Apex, trate a primeira VPS 
 Arquivos principais:
 
 - `docker-compose.prod.yml`: stack de producao com Postgres, Redis, backend, worker, frontend e backup diario.
+- `scripts/go-live.sh`: fluxo completo para VPS limpa, chamando instalacao, bootstrap, deploy Apex Realms e checker.
+- `scripts/install.sh`: instalador idempotente de Ubuntu, Docker, Compose, UFW, Fail2Ban, usuario, diretorios, redes e timers.
+- `scripts/bootstrap-production.sh`: wizard CLI, `.env.production`, Nginx, SSL, migrations, Admin, containers e health checks.
+- `scripts/check-vps.sh`: auditoria de VPS com correcoes exatas quando algo falha.
 - `nginx/apex-host.prod.conf.example`: Nginx com SSL, headers de seguranca, rate limit, proxy de API/painel, wildcard de projetos e compatibilidade WebSocket.
 - `docs/production-vps.md`: passo a passo completo para Ubuntu, SSH, firewall, Docker, Nginx, Certbot, dominio, SSL, migrations, Admin, webhook, deploy, rollback e backup.
 - `docs/staging-vps-checklist.md`: checklist da fase "Staging VPS - Validacao Real".
@@ -104,16 +109,18 @@ Arquivos principais:
 - `docs/security-go-live.md`: checklist de seguranca antes do go-live.
 - `docs/go-live-checklist.md`: checklist final com estados `Nao iniciado`, `Testado` e `Aprovado`.
 
-Subida recomendada na VPS:
+Subida automatizada em uma VPS Ubuntu limpa:
 
 ```bash
-cp .env.example .env
-nano .env
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml ps
+ssh root@IP_DA_VPS
+git clone https://github.com/Kaueeteixeiraa/apex-host.git /tmp/apex-host
+cd /tmp/apex-host
+sudo bash scripts/go-live.sh
 ```
 
-Importante: na Staging VPS use `ENVIRONMENT=production`, `DEPLOY_STAGE=staging_vps`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas. Crie o Admin pelo assistente inicial ou por `scripts/create-admin.sh`; nao use credenciais padrao.
+O `go-live.sh` executa `install.sh`, `bootstrap-production.sh`, publica o Apex Realms como primeiro deploy real e roda `check-vps.sh`. Se `.env.production` nao existir, o bootstrap abre um wizard CLI para empresa, dominio, email/senha Admin, Docker e SSL. Para pular a publicacao automatica do Apex Realms enquanto o DNS `realms.{BASE_DOMAIN}` ainda propaga, rode `sudo SKIP_APEX_REALMS=true bash scripts/go-live.sh`.
+
+Importante: na VPS use `APP_ENV=production`, `APP_STAGE=go_live`, `DRY_RUN=false`, `DEPLOY_MODE=docker`, segredos fortes para `SECRET_KEY`, `JWT_SECRET`, `ENCRYPTION_KEY` e `POSTGRES_PASSWORD`, `AUTO_CREATE_TABLES=false`, CORS restrito ao dominio real e Postgres/Redis sem portas publicas. Crie o Admin pelo wizard/script; nao use credenciais padrao.
 
 ## Teste real em Staging VPS
 
@@ -156,12 +163,12 @@ Checklist da fase: [`docs/staging-vps-checklist.md`](docs/staging-vps-checklist.
 
 Para abrir o Apex Host em link real para poucos colaboradores, saia do modo local/dry run somente em uma VPS preparada:
 
-1. Copie `.env.production.example` para `.env.production`.
-2. Configure `APP_ENV=production`, `APP_STAGE=go_live`, `DRY_RUN=false`, `DEPLOY_MODE=docker`, `ENABLE_DOCKER_DEPLOYS=true` e `ENABLE_BUILD_COMMANDS=true`.
-3. Defina `PUBLIC_APP_URL`, `API_URL`, `BASE_DOMAIN`, `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`, `CERTBOT_EMAIL`, `DOCKER_NETWORK`, `BACKUP_PATH` e `BACKUP_RETENTION_DAYS` com valores reais.
-4. Deixe `BOOTSTRAP_DEFAULT_ADMIN=false`; crie o primeiro Admin pelo assistente inicial ou por `scripts/create-admin.sh`.
-5. Configure DNS para `host.{BASE_DOMAIN}` e para os projetos, por exemplo `realms.{BASE_DOMAIN}`.
-6. Rode `scripts/setup-vps.sh`, `scripts/deploy-production.sh` e depois `scripts/check-production.sh`.
+1. Aponte DNS para `host.{BASE_DOMAIN}` e para os projetos, por exemplo `realms.{BASE_DOMAIN}`.
+2. Rode `sudo bash scripts/go-live.sh` em uma VPS Ubuntu 22.04/24.04.
+3. Preencha o wizard CLI se `.env.production` ainda nao existir.
+4. O script instala dependencias, gera Nginx real, cria certificado temporario, sobe containers, roda migrations, cria Admin, emite SSL real e valida health checks.
+5. Se preferir passos separados, rode `sudo bash scripts/install.sh`, `sudo bash scripts/bootstrap-production.sh` e `bash scripts/check-vps.sh`.
+6. Os scripts antigos `setup-vps.sh`, `deploy-production.sh` e `check-production.sh` continuam como aliases.
 7. Abra `/production-audit`; nao libere colaboradores enquanto existir falha critica.
 8. Mantenha `PUBLIC_REGISTRATION_ENABLED` conforme a fase de teste e `require_account_approval=true` para aprovar Devs/Viewers manualmente.
 9. No painel Admin, aprove colaboradores como `Viewer` ou `Dev`. Nao ha perfil Cliente ou Plano.
@@ -175,15 +182,15 @@ Para sair de localhost e abrir o Apex Host para colaboradores, use a fase `Go Li
 
 Fluxo:
 
-1. Configure DNS e SSL conforme [`docs/domain-dns-go-live.md`](docs/domain-dns-go-live.md).
-2. Configure `.env.production` com `APP_ENV=production`, `APP_STAGE=go_live`, `DRY_RUN=false`, `DEPLOY_MODE=docker`, `ENABLE_DOCKER_DEPLOYS=true` e `ENABLE_BUILD_COMMANDS=true`.
-3. Rode `scripts/setup-vps.sh`.
-4. Rode `scripts/deploy-production.sh`.
+1. Configure DNS conforme [`docs/domain-dns-go-live.md`](docs/domain-dns-go-live.md).
+2. Rode `sudo bash scripts/go-live.sh`.
+3. Responda o wizard CLI se `.env.production` ainda nao existir.
+4. Aguarde install, bootstrap, SSL, deploy do Apex Realms e checker da VPS.
 5. Acesse `https://host.{BASE_DOMAIN}`.
-6. Se nao existir Admin, conclua o assistente `Bem-vindo ao Apex Host`.
+6. Se o Admin nao foi criado pelo CLI, conclua o assistente `Bem-vindo ao Apex Host`.
 7. Abra `/production-audit` e corrija falhas criticas.
 8. Publique o Apex Realms como primeiro projeto publico.
-9. Rode `scripts/check-production.sh`.
+9. Rode `bash scripts/check-vps.sh` sempre que alterar a VPS.
 
 Checklist: [`docs/go-live-real.md`](docs/go-live-real.md). Guia dos colaboradores: [`docs/collaborators.md`](docs/collaborators.md). Primeiro projeto: [`docs/go-live-apex-realms.md`](docs/go-live-apex-realms.md).
 
@@ -427,32 +434,31 @@ Checklist antes de producao:
 
 ## Nginx e SSL
 
-Painel:
+Em producao o Apex Host usa Nginx containerizado pelo `docker-compose.prod.yml`; o usuario nao edita `/etc/nginx` manualmente.
 
-```bash
-sudo cp nginx/apex-host.conf /etc/nginx/sites-available/apex-host.conf
-sudo ln -s /etc/nginx/sites-available/apex-host.conf /etc/nginx/sites-enabled/apex-host.conf
-sudo nginx -t
-sudo systemctl reload nginx
-sudo certbot --nginx -d host.apextechnologies.com.br
-```
+Automatizado:
 
-Projetos hospedados:
-
-- Configure `BASE_DOMAIN`.
-- Configure wildcard DNS se quiser subdominios automaticos.
-- Configure `NGINX_SITES_DIR`.
-- Use o endpoint de SSL por dominio ou rode Certbot manualmente.
+- `scripts/bootstrap-production.sh` gera `nginx/apex-host.prod.conf` a partir de `PUBLIC_APP_URL` e `BASE_DOMAIN`.
+- O bootstrap cria um certificado temporario para o Nginx iniciar e depois emite SSL real com Certbot via webroot.
+- O backend gera configs por projeto em `NGINX_SITES_DIR`, valida com `nginx -t` e recarrega `apex-host-nginx`.
+- O endpoint de SSL por dominio usa o mesmo fluxo webroot real, reescreve a config HTTPS e recarrega Nginx.
+- `bash scripts/renew-ssl.sh` roda via systemd timer instalado por `scripts/install.sh`.
+- Ao excluir projeto/dominio, configs antigas sao removidas ou reescritas automaticamente.
 
 ## Backups
 
 ```bash
 bash scripts/backup_postgres.sh
+bash scripts/restore_postgres.sh latest RESTAURAR
 ```
 
-Recomendado em producao:
+Automatizado em producao por `scripts/install.sh`:
 
-- Backup diario do Postgres.
+- Backup diario do Postgres em `${BACKUP_PATH}/daily`.
+- Backup semanal em `${BACKUP_PATH}/weekly`.
+- Backup mensal em `${BACKUP_PATH}/monthly`.
+- Limpeza por `BACKUP_RETENTION_DAYS`, `BACKUP_WEEKLY_RETENTION_DAYS` e `BACKUP_MONTHLY_RETENTION_DAYS`.
+- Restore por arquivo ou `latest` com confirmacao forte `RESTAURAR`.
 - Backup das configs Nginx geradas.
 - Backup de `.env` em cofre seguro, nunca no Git.
 - Teste periodico de restauracao.

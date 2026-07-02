@@ -8,14 +8,9 @@ Use Ubuntu LTS, pelo menos 2 vCPU, 4 GB RAM e disco suficiente para repositorios
 
 ```bash
 ssh root@IP_DA_VPS
-apt update && apt -y upgrade
-adduser apex
-usermod -aG sudo apex
-mkdir -p /opt/apex-host
-chown apex:apex /opt/apex-host
 ```
 
-Configure SSH por chave e desative senha/root quando possivel.
+O instalador automatiza atualizacao, Docker, Compose, UFW, Fail2Ban, usuario `apex`, diretorios, redes Docker, timers de backup e renovacao SSL.
 
 ## 2. DNS
 
@@ -27,32 +22,59 @@ Crie os registros:
 ## 3. Codigo
 
 ```bash
-su - apex
-cd /opt/apex-host
-git clone https://github.com/Kaueeteixeiraa/apex-host.git .
-cp .env.production.example .env.production
-nano .env.production
+git clone https://github.com/Kaueeteixeiraa/apex-host.git /tmp/apex-host
+cd /tmp/apex-host
 ```
 
-Variaveis obrigatorias para deploy real:
+## 4. Go Live em poucos comandos
+
+```bash
+sudo bash scripts/go-live.sh
+```
+
+Esse comando:
+
+- roda `scripts/install.sh`;
+- abre wizard se `.env.production` nao existir;
+- gera segredos fortes;
+- gera `nginx/apex-host.prod.conf`;
+- cria certificado temporario para boot do Nginx;
+- sobe Postgres, Redis, backend, worker, frontend, Nginx e backup;
+- roda migrations;
+- cria o primeiro Admin;
+- emite SSL real do painel;
+- publica Apex Realms como primeiro projeto real;
+- roda `bash scripts/check-vps.sh`.
+
+Se o DNS de `realms.{BASE_DOMAIN}` ainda nao propagou, use:
+
+```bash
+sudo SKIP_APEX_REALMS=true bash scripts/go-live.sh
+```
+
+## 5. Variaveis importantes
+
+O wizard cria `.env.production`. Se preferir preencher manualmente antes do bootstrap, use:
 
 ```env
 APP_ENV=production
-DEPLOY_STAGE=staging_vps
+APP_STAGE=go_live
 DRY_RUN=false
 DEPLOY_MODE=docker
+ENABLE_DOCKER_DEPLOYS=true
+ENABLE_BUILD_COMMANDS=true
 PUBLIC_APP_URL=https://host.seudominio.com
 API_URL=https://host.seudominio.com/api
-BASE_DOMAIN=apps.seudominio.com
+BASE_DOMAIN=seudominio.com
 DATABASE_URL=postgresql+psycopg://apex_host:SENHA@postgres:5432/apex_host
 REDIS_URL=redis://redis:6379/0
+SECRET_KEY=...
 JWT_SECRET=...
 ENCRYPTION_KEY=...
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
 GITHUB_WEBHOOK_SECRET=...
 CERTBOT_EMAIL=admin@seudominio.com
 DOCKER_NETWORK=apex-host-internal
+DOCKER_APPS_NETWORK=apex-host-apps
 BACKUP_PATH=/data/backups
 BACKUP_RETENTION_DAYS=14
 ```
@@ -63,54 +85,20 @@ Gere segredos com:
 openssl rand -hex 32
 ```
 
-## 4. Setup da VPS
+## 6. Comandos separados
 
 ```bash
-sudo APP_DIR=/opt/apex-host APP_USER=apex scripts/setup-vps.sh
+sudo bash scripts/install.sh
+sudo bash scripts/bootstrap-production.sh
+bash scripts/check-vps.sh
+bash scripts/publish-apex-realms.sh
 ```
 
-O script instala/configura Docker, Docker Compose, Nginx, Certbot, UFW, Fail2Ban, diretorios de deploy, diretorios de backup, redes Docker e permissoes basicas.
+`setup-vps.sh`, `deploy-production.sh` e `check-production.sh` continuam como aliases para compatibilidade.
 
-## 5. Nginx e SSL
+## 7. Nginx e SSL
 
-Crie o arquivo real do Nginx e edite os dominios:
-
-```bash
-cp nginx/apex-host.prod.conf.example nginx/apex-host.prod.conf
-nano nginx/apex-host.prod.conf
-```
-
-Troque:
-
-- `host.example.com` pelo dominio real do painel.
-- `apps.example.com` pelo dominio wildcard dos projetos.
-
-Para o primeiro certificado do painel:
-
-```bash
-sudo certbot certonly --webroot -w /opt/apex-host/data/certbot/www -d host.seudominio.com
-```
-
-Para wildcard, use DNS challenge do seu provedor ou emita certificados por projeto conforme a estrategia de dominios.
-
-## 6. Subir Staging VPS
-
-```bash
-cd /opt/apex-host
-scripts/deploy-production.sh
-```
-
-O script carrega `.env.production`, valida variaveis obrigatorias, roda migrations, sobe containers, testa Postgres, Redis, backend, worker, frontend, Nginx e mostra status final.
-
-## 7. Primeiro Admin
-
-Crie ou atualize o primeiro admin sem abrir cadastro livre:
-
-```bash
-scripts/create-admin.sh admin@seudominio.com 'senha-forte-temporaria' 'Apex Admin'
-```
-
-Entre no painel, troque a senha temporaria e mantenha `ADMIN_SIGNUP_CODE` vazio se nao quiser cadastro admin publico.
+O usuario nao edita `/etc/nginx` manualmente. O bootstrap gera `nginx/apex-host.prod.conf`, cria SSL do painel via webroot e monta `/etc/nginx/project-sites` no container. Deploys de projeto escrevem configs, validam `nginx -t`, recarregam Nginx e emitem SSL por dominio.
 
 ## 8. GitHub
 

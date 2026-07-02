@@ -41,19 +41,25 @@ curl -I http://realms.seudominio.com
 
 ## SSL
 
+O Apex Host nao usa `certbot --nginx` manualmente em producao. O Nginx roda em container e o Certbot usa webroot compartilhado.
+
 Painel:
 
 ```bash
-certbot --nginx -d host.seudominio.com
+sudo bash scripts/bootstrap-production.sh
 ```
+
+O bootstrap cria certificado temporario para o Nginx iniciar, valida o DNS e emite o certificado real para `PUBLIC_APP_URL`.
 
 Projeto individual:
 
 ```bash
-certbot --nginx -d realms.seudominio.com
+bash scripts/publish-apex-realms.sh
 ```
 
-Wildcard exige DNS challenge no provedor do dominio. Depois de emitir, teste:
+Ou use o botao/endpoint de SSL do dominio no painel. O backend escreve a config do projeto em `NGINX_SITES_DIR`, roda `nginx -t`, emite o certificado com webroot, reescreve a config HTTPS e recarrega o container `apex-host-nginx`.
+
+Wildcard ainda exige DNS challenge no provedor do dominio se voce quiser certificado curinga; o fluxo padrao emite certificado por host/projeto. Depois de emitir, teste:
 
 ```bash
 curl -I https://host.seudominio.com
@@ -62,9 +68,9 @@ openssl s_client -connect host.seudominio.com:443 -servername host.seudominio.co
 
 ## Renovacao
 
-Certbot instala timer automatico na maioria das distros. Verifique:
+O instalador cria `apex-host-renew-ssl.timer`:
 
 ```bash
-systemctl list-timers | grep certbot
-certbot renew --dry-run
+systemctl list-timers | grep apex-host-renew-ssl
+bash scripts/renew-ssl.sh
 ```

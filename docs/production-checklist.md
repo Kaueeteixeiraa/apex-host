@@ -109,7 +109,7 @@ Este checklist guia um teste real do Apex Host em uma VPS. Execute primeiro em a
 
 ## Backups e recuperacao
 
-- [ ] Rodar `scripts/backup_postgres.sh`.
+- [ ] Rodar `bash scripts/backup_postgres.sh`.
 - [ ] Copiar backups para armazenamento externo.
 - [ ] Testar restauracao do Postgres em ambiente separado.
 - [ ] Documentar RPO/RTO esperado.

@@ -1,3 +1,5 @@
 # Daily Apex Host database backup at 03:15.
 # Install with: sudo crontab -e
-15 3 * * * cd /opt/apex-host && COMPOSE_FILE=docker-compose.prod.yml BACKUP_PATH=/opt/apex-host/data/backups BACKUP_RETENTION_DAYS=14 /usr/bin/env bash scripts/backup_postgres.sh >> /opt/apex-host/data/backups/backup-cron.log 2>&1
+# Prefer the systemd timers installed by scripts/install.sh.
+# Cron fallback:
+15 3 * * * cd /opt/apex-host && HOST_BACKUP_PATH=/opt/apex-host/data/backups BACKUP_RETENTION_DAYS=14 /usr/bin/env bash scripts/backup_postgres.sh >> /opt/apex-host/data/backups/backup-cron.log 2>&1

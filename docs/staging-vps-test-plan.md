@@ -106,9 +106,9 @@ Se Next.js ainda falhar por runtime especifico, registrar o erro e marcar o temp
 - [ ] Gerar backup manual pelo painel.
 - [ ] Confirmar backup automatico diario.
 - [ ] Baixar backup pelo painel.
-- [ ] Rodar `scripts/backup_postgres.sh`.
+- [ ] Rodar `bash scripts/backup_postgres.sh`.
 - [ ] Copiar backup para armazenamento externo.
-- [ ] Restaurar em ambiente separado com `scripts/restore_postgres.sh`.
+- [ ] Restaurar em ambiente separado com `bash scripts/restore_postgres.sh`.
 - [ ] Confirmar que variaveis sensiveis continuam criptografadas.
 
 ## Rollback

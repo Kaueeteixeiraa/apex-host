@@ -7,8 +7,8 @@ limit_req_zone $binary_remote_addr zone=apex_api:10m rate=120r/m;
 # - Projetos: A/AAAA *.example.com -> IP da VPS ou CNAMEs individuais.
 # - Validacao: dig +short host.example.com && dig +short realms.example.com.
 # SSL:
-# - Painel: certbot --nginx -d host.example.com.
-# - Wildcard de projetos: use DNS challenge para *.apps.example.com ou deixe o Apex Host gerar SSL por dominio/projeto.
+# - Painel: gerado por scripts/bootstrap-production.sh via webroot compartilhado.
+# - Projetos: o Apex Host gera SSL por dominio/projeto via webroot compartilhado.
 
 map $http_upgrade $connection_upgrade {
     default upgrade;

@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git docker.io \
+    && apt-get install -y --no-install-recommends git docker.io certbot curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

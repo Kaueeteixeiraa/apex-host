@@ -122,6 +122,13 @@ def _db_online(db: Session) -> bool:
         return False
 
 
+def _latest_backup_file(path: Path) -> Path | None:
+    if not path.exists():
+        return None
+    files = sorted(path.rglob("apex_host-*.sql.gz"), key=lambda item: item.stat().st_mtime, reverse=True)
+    return files[0] if files else None
+
+
 def production_audit(db: Session) -> dict:
     settings = get_settings()
     infra = infrastructure_status()
@@ -132,6 +139,7 @@ def production_audit(db: Session) -> dict:
     public_app_url = settings.public_app_url
     api_url = settings.api_url
     backup_path = Path(settings.backup_path)
+    latest_backup_file = _latest_backup_file(backup_path)
     postgres_exposed = _docker_ports_exposed("postgres", "5432")
     redis_exposed = _docker_ports_exposed("redis", "6379")
     stage = settings.deploy_stage.lower().replace("_", "-")
@@ -160,7 +168,7 @@ def production_audit(db: Session) -> dict:
         _item("redis_private", "Redis nao exposto publicamente", not redis_exposed, severity="critical", problem="Redis parece exposto.", why="Redis sem autenticacao publica e risco critico.", fix="Remova publicacao de porta 6379 e use rede interna."),
         _item("firewall", "Firewall ativo", _ufw_active() or settings.environment != "production", problem="Firewall nao confirmado.", why="A VPS deve expor apenas SSH/HTTP/HTTPS.", fix="Ative UFW e revise regras."),
         _item("backup_path", "Backup path existe", backup_path.exists(), problem="Diretorio de backup ausente.", why="Backups precisam de destino persistente.", fix=f"Crie {backup_path} e ajuste permissoes."),
-        _item("last_backup", "Ultimo backup registrado", last_backup is not None, problem="Nenhum backup registrado.", why="Go Live precisa restore testado.", fix="Execute backup manual e confira rotina automatica."),
+        _item("last_backup", "Ultimo backup existente", last_backup is not None or latest_backup_file is not None, problem="Nenhum backup encontrado.", why="Go Live precisa restore testado.", fix="Execute scripts/backup_postgres.sh e confira timers automaticos."),
         _item("disk", "Espaco em disco saudavel", infra["server"].get("disk_percent", 100) < 85, problem="Disco acima de 85%.", why="Builds, imagens e backups podem parar.", fix="Libere espaco ou aumente volume."),
         _item("ram", "Uso de RAM saudavel", infra["server"].get("memory_percent", 100) < 90, problem="RAM acima de 90%.", why="Deploys podem falhar sob pressao de memoria.", fix="Reduza containers ou aumente RAM."),
         _item("cpu", "Uso de CPU saudavel", infra["server"].get("cpu_percent", 100) < 90, problem="CPU acima de 90%.", why="Worker e painel podem degradar.", fix="Investigue processos ou aumente CPU."),

@@ -5,7 +5,7 @@ Use antes de transformar a Staging VPS em hospedagem principal da Apex.
 ## Identidade e acesso
 
 - [ ] Trocar senha admin padrao.
-- [ ] Criar Admin inicial com `scripts/create-admin.sh`.
+- [ ] Criar Admin inicial com `bash scripts/create-admin.sh`.
 - [ ] Confirmar que cadastro publico nao cria Admin livremente.
 - [ ] Definir `ADMIN_SIGNUP_CODE` forte ou deixar vazio e criar Admin somente por script.
 - [ ] Usar SSH com chave.

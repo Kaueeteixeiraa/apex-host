@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     nginx_reload_command: str = "nginx -s reload"
     certbot_enabled: bool = False
     certbot_email: str | None = None
+    certbot_webroot: str = "/var/www/certbot"
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None
@@ -111,8 +112,9 @@ class Settings(BaseSettings):
             "SECRET_KEY": self.secret_key,
             "JWT_SECRET": self.effective_jwt_secret,
             "ENCRYPTION_KEY": self.effective_encryption_key,
-            "ADMIN_PASSWORD": self.admin_password,
         }
+        if self.bootstrap_default_admin:
+            weak_values["ADMIN_PASSWORD"] = self.admin_password
         unsafe = {
             key
             for key, value in weak_values.items()

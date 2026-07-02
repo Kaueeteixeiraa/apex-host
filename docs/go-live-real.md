@@ -19,7 +19,7 @@ Checklist para colocar o Apex Host em um dominio publico para colaboradores.
 
 ## Plataforma
 
-- [ ] Primeiro Admin criado pelo assistente inicial ou `scripts/create-admin.sh`.
+- [ ] Primeiro Admin criado pelo assistente inicial ou `bash scripts/create-admin.sh`.
 - [ ] Admin padrao local nao existe.
 - [ ] Login publico funcionando.
 - [ ] Dashboard publico funcionando.
@@ -45,10 +45,12 @@ Roteiro detalhado: [`docs/go-live-apex-realms.md`](go-live-apex-realms.md).
 ## Comandos uteis
 
 ```bash
-scripts/setup-vps.sh
-scripts/deploy-production.sh
-scripts/create-admin.sh admin@seudominio.com 'SenhaForteCom12+Caracteres' 'Apex Admin'
-scripts/check-production.sh
+sudo bash scripts/go-live.sh
+sudo bash scripts/install.sh
+sudo bash scripts/bootstrap-production.sh
+bash scripts/check-vps.sh
+bash scripts/publish-apex-realms.sh
+bash scripts/create-admin.sh admin@seudominio.com 'SenhaForteCom12+Caracteres' 'Apex Admin'
 ```
 
 ## Criterio de liberacao

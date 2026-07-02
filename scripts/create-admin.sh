@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-ENV_FILE="${ENV_FILE:-.env.production}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/production-common.sh
+source "$SCRIPT_DIR/lib/production-common.sh"
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: scripts/create-admin.sh admin@example.com 'temporary-strong-password' ['Full Name']"
@@ -23,7 +24,9 @@ if [[ ${#PASSWORD} -lt 12 ]]; then
   exit 1
 fi
 
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T backend \
+cd "$APP_DIR"
+load_env
+compose exec -T backend \
   python -m app.scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
 
 echo "Admin created or updated: $EMAIL"

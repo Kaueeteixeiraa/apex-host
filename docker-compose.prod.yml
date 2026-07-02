@@ -55,12 +55,15 @@ services:
       NGINX_UPSTREAM_HOST: host.docker.internal
       NGINX_TEST_COMMAND: docker exec apex-host-nginx nginx -t
       NGINX_RELOAD_COMMAND: docker exec apex-host-nginx nginx -s reload
+      CERTBOT_WEBROOT: /var/www/certbot
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     volumes:
       - apex_data:/data
       - ./data/backups:/data/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - nginx_project_sites:/etc/nginx/project-sites
+      - ./data/certbot/www:/var/www/certbot
+      - ./data/letsencrypt:/etc/letsencrypt
     expose:
       - "8000"
     depends_on:
@@ -96,11 +99,14 @@ services:
       NGINX_UPSTREAM_HOST: host.docker.internal
       NGINX_TEST_COMMAND: docker exec apex-host-nginx nginx -t
       NGINX_RELOAD_COMMAND: docker exec apex-host-nginx nginx -s reload
+      CERTBOT_WEBROOT: /var/www/certbot
     volumes:
       - apex_data:/data
       - ./data/backups:/data/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - nginx_project_sites:/etc/nginx/project-sites
+      - ./data/certbot/www:/var/www/certbot
+      - ./data/letsencrypt:/etc/letsencrypt
     depends_on:
       backend:
         condition: service_healthy
@@ -155,6 +161,7 @@ services:
       - nginx_project_sites:/etc/nginx/project-sites:ro
       - ./data/certbot/www:/var/www/certbot
       - ./data/letsencrypt:/etc/letsencrypt
+      - ./data/nginx-bootstrap-certs:/etc/nginx/bootstrap-certs:ro
       - ./data/nginx-fallback:/var/www/apex-host
     depends_on:
       frontend:
@@ -190,9 +197,10 @@ services:
         condition: service_healthy
     command: >
       sh -c 'while true; do
+      mkdir -p /backups/daily;
       stamp=$$(date +%Y%m%d-%H%M%S);
-      pg_dump -h postgres -U "$${POSTGRES_USER:-apex_host}" "$${POSTGRES_DB:-apex_host}" | gzip > "/backups/apex_host-$$stamp.sql.gz";
-      find /backups -name "apex_host-*.sql.gz" -mtime +"$${BACKUP_RETENTION_DAYS:-14}" -delete;
+      pg_dump -h postgres -U "$${POSTGRES_USER:-apex_host}" "$${POSTGRES_DB:-apex_host}" | gzip > "/backups/daily/apex_host-$$stamp.sql.gz";
+      find /backups/daily -name "apex_host-*.sql.gz" -mtime +"$${BACKUP_RETENTION_DAYS:-14}" -delete;
       sleep 86400;
       done'
     logging: *default-logging

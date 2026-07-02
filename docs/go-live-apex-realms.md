@@ -25,7 +25,7 @@ realms.{BASE_DOMAIN}
 - [ ] `.env.production` com `DEPLOY_MODE=docker`.
 - [ ] `.env.production` com `ENABLE_DOCKER_DEPLOYS=true`.
 - [ ] `.env.production` com `ENABLE_BUILD_COMMANDS=true`.
-- [ ] Primeiro Admin criado pelo assistente inicial ou `scripts/create-admin.sh`.
+- [ ] Primeiro Admin criado pelo assistente inicial ou `bash scripts/create-admin.sh`.
 - [ ] Admin `admin@apex.local` ausente em producao.
 - [ ] `/production-audit` sem falhas criticas.
 - [ ] GitHub conectado ou URL manual liberada.
@@ -68,7 +68,7 @@ realms.{BASE_DOMAIN}
 docker ps
 docker logs apex-host-realms --tail 100
 curl -I https://realms.{BASE_DOMAIN}
-scripts/check-production.sh
+bash scripts/check-vps.sh
 ```
 
 Depois do teste, reinicie a VPS em janela controlada e confirme que Apex Host, worker, Redis, Postgres, Nginx e Apex Realms voltam online.
